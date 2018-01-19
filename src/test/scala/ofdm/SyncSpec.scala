@@ -206,7 +206,7 @@ class SyncSpec extends FlatSpec with Matchers {
   }
 
   it should "correct CFO for Rimas's test signal (digital loopback)" ignore {
-    val testSignal = ADITrace.binaryResource("/waveforms/wifi-bpsk-loopback-digital.dat")
+    val testSignal = ADITrace.binaryResource("/waveforms/wifi-bpsk-loopback-digital.dat.xz")
     val cfoSignal = testSignal //IEEE80211.addCFO(testSignal, -50.0e3)
 
     val output = runTest(cfoSignal, stfParams, thresh = .025)
@@ -248,7 +248,7 @@ class SyncSpec extends FlatSpec with Matchers {
   }
 
   it should "correct CFO for Rimas's test signal (cable loopback)" ignore {
-    val testSignal = ADITrace.binaryResource("/waveforms/wifi-bpsk-loopback-cable.dat").take(100000)
+    val testSignal = ADITrace.binaryResource("/waveforms/wifi-bpsk-loopback-cable.dat.xz").take(100000)
     val cfoSignal = testSignal //IEEE80211.addCFO(testSignal, -50.0e3)
 
     val output = runTest(cfoSignal, stfParams, thresh = 0.2)
@@ -290,7 +290,7 @@ class SyncSpec extends FlatSpec with Matchers {
   }
 
   it should "correct CFO for Rimas's test signal (two board)" in {
-    val testSignal = ADITrace.binaryResource("/waveforms/wifi-bpsk-2boards.dat").take(100000)
+    val testSignal = ADITrace.binaryResource("/waveforms/wifi-bpsk-2boards.dat.xz").take(100000)
     val cfoSignal = testSignal //IEEE80211.addCFO(testSignal, -50.0e3)
 
     val output = runTest(cfoSignal, stfParams, thresh = 0.2)

@@ -104,3 +104,42 @@ class Sync[T <: Data : Real : BinaryRepresentation](params: SyncParams[T])/*(imp
   io.out.valid := nco.io.out.valid
   io.packetDetect := cordic.io.out.valid
 }
+
+object GenerateSyncVerilog extends App {
+  import chisel3.experimental.FixedPoint
+  val protoIn  = FixedPoint(16.W, 14.BP)
+  val protoOut = FixedPoint(16.W, 14.BP)
+  val protoCORDIC = FixedPoint(16.W, 14.BP)
+  val protoAutocorr = protoIn
+  val protoBig = FixedPoint(32.W, 16.BP)
+  val protoAngle = FixedPoint(32.W, 32.BP)
+  val stfParams = SyncParams(
+    protoIn = DspComplex(protoIn, protoIn),
+    protoOut = DspComplex(protoOut, protoOut),
+    filterProtos = (protoIn, protoIn, protoIn),
+    filterConstructor = (pIn: FixedPoint, pOut: FixedPoint, pCoeff: FixedPoint) => new STF64MatchedFilter(pIn, pOut, pCoeff),
+    protoAngle = protoAngle,
+    autocorrParams = AutocorrParams(
+      protoIn = DspComplex(protoAutocorr, protoAutocorr),
+      maxApart = 128,
+      maxOverlap = 128
+    ),
+    peakDetectParams = PeakDetectParams(
+      protoCorr = protoCORDIC,
+      protoEnergyFF = protoBig,
+      protoEnergyMult = protoBig,
+      windowSize = 16
+    ),
+    ncoParams = NCOParams(
+      phaseWidth = 32,
+      1024,
+      {x: UInt => x.asTypeOf(protoAngle)},
+      protoFreq = protoAngle,
+      protoOut = FixedPoint(32.W, 30.BP)
+    )
+  )
+
+  chisel3.Driver.execute(Array("-X", "verilog"),
+    () => new Sync(stfParams))
+
+}

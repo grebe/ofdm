@@ -243,35 +243,22 @@ class AutocorrSimple[T <: Data : Ring](params: AutocorrParams[T]) extends Module
   sum.io.in.valid := ShiftRegister(shr_out_valid, params.mulPipeDelay, resetData = false.B, en = io.in.fire())
 
   val sum_out_packed = sum.io.out.bits.asUInt
-  val sum_out_irrevocable = Wire(Irrevocable(sum_out_packed.cloneType))
-  sum_out_irrevocable.bits := sum_out_packed
-  sum_out_irrevocable.valid := sum.io.out.valid
 
   io.out.valid := sum.io.out.valid
   io.out.bits := sum.io.out.bits
 
 }
-// 
-// object BuildSampleAutocorr {
-//   def main(args: Array[String]): Unit = {
-//     implicit val p: Parameters = Parameters.root((new BaseCoreplexConfig).toInstance)
-//     val params = AutocorrParams(
-//       DspComplex(FixedPoint(16.W, 14.BP), FixedPoint(16.W, 14.BP)),
-//       //DspComplex(FixedPoint(8.W, 4.BP), FixedPoint(8.W, 4.BP)),
-//       // genOut=Some(DspComplex(FixedPoint(16.W, 8.BP), FixedPoint(16.W, 8.BP))),
-//       maxApart = 32,
-//       maxOverlap = 32,
-//       address = AddressSet(0x0, 0xffffffffL),
-//       beatBytes = 8)
-//     val inWidthBytes = 4 //(params.genIn.getWidth + 7) / 8
-//     val outWidthBytes = 4 //params.genOut.map(x => (x.getWidth + 7)/8).getOrElse(inWidthBytes)
-// 
-//     println(s"In bytes = $inWidthBytes and out bytes = $outWidthBytes")
-// 
-//     val blindParams = DspBlockBlindNodes(
-//       streamIn  = () => AXI4StreamMasterNode(Seq(AXI4StreamMasterPortParameters())),
-//       streamOut = () => AXI4StreamSlaveNode(Seq(AXI4StreamSlavePortParameters())),
-//       mem       = () => AXI4IdentityNode())
-//     chisel3.Driver.execute(Array("-X", "verilog"), () => LazyModule(DspBlock.blindWrapper(() => new Autocorr(params), blindParams)).module)
-//   }
-// }
+
+object BuildSampleAutocorr {
+  def main(args: Array[String]): Unit = {
+    val params = AutocorrParams(
+      DspComplex(FixedPoint(16.W, 14.BP), FixedPoint(16.W, 14.BP)),
+      //DspComplex(FixedPoint(8.W, 4.BP), FixedPoint(8.W, 4.BP)),
+      // genOut=Some(DspComplex(FixedPoint(16.W, 8.BP), FixedPoint(16.W, 8.BP))),
+      maxApart = 32,
+      maxOverlap = 32,
+      beatBytes = 8)
+
+    chisel3.Driver.execute(Array("-X", "verilog"), () => new AutocorrSimple(params))
+  }
+}

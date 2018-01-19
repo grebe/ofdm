@@ -62,11 +62,15 @@ object ADITrace {
   }
 
   def resourceStream(resource: String): InputStream = {
-    getClass.getResourceAsStream(resource)
+    val toret = getClass.getResourceAsStream(resource)
+    require(toret != null, "Bad resource")
+    toret
   }
 
   def fileStream(name: String): InputStream = {
-    new FileInputStream(name)
+    val toret = new FileInputStream(name)
+    require(toret != null, "Bad resource")
+    toret
   }
 
   def binaryResource(resource: String): Seq[Complex] = {
