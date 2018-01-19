@@ -1,0 +1,8 @@
+wifi_bpsk.txt 		waveform used in these experiments
+			text format, as used by ADI scope app
+
+wifi-bpsk-loopback-digital.dat	loopback capture using digital BIST mode
+wifi-bpsk-loopback-cable.dat	loopback capture using cable
+wifi-bpsk-2boards.dat 		capture using 2 boards (tx/rx) slow agc
+wifi-bpsk-2boards-fastagc.dat	same using fast agc
+wifi-bpsk-2boards-hybridagc.dat same using hybrid agc
