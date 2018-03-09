@@ -16,7 +16,8 @@ val commonSettings = Seq(
     Resolver.sonatypeRepo("snapshots"),
     Resolver.sonatypeRepo("release")
   ),
-  scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature", "-language:reflectiveCalls") ++ scalacOptions(scalaVersion.value),
+  scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature", "-language:reflectiveCalls"),
+  // scalacOptions ++= scalacOptions(scalaVersion.value),
   javacOptions ++= javacOptionsVersion(scalaVersion.value)
 )
 
