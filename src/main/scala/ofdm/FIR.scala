@@ -10,7 +10,7 @@ class FIRIO[T <: Data](protoIn: T, protoOut: T) extends Bundle {
   val out = Output(Valid(protoOut.cloneType))
 }
 
-class FIR[T <: Data : Ring](protoIn: T, protoOut: T, taps: Seq[T], zero: T) extends Module {
+class FIR[T <: Data : Ring](val protoIn: T, val protoOut: T, val taps: Seq[T], zero: T) extends Module {
   val io = IO(new FIRIO(protoIn, protoOut))
 
 

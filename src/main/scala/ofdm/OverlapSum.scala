@@ -4,25 +4,6 @@ import chisel3._
 import chisel3.util._
 import dsptools.numbers._
 
-object TreeReduce {
-  def apply[V](in: Seq[V], func: (V, V) => V): V = {
-    if (in.length == 1) {
-      return in(0)
-    }
-    if (in.length == 2) {
-      return func(in(0), in(1))
-    }
-    if (in.length % 2 == 0) {
-      val withIdxs = in.zipWithIndex
-      val evens = withIdxs.filter{case (_, idx) => idx % 2 == 0}.map(_._1)
-      val odds  = withIdxs.filter{case (_, idx) => idx % 2 != 0}.map(_._1)
-      val evenOddPairs: Seq[(V, V)] = evens zip odds
-      return TreeReduce(evenOddPairs.map(x => func(x._1, x._2)), func)
-    } else {
-      return TreeReduce(Seq(in(0), TreeReduce(in.drop(1), func)), func)
-    }
-  }
-}
 class OverlapSum[T <: Data : Ring](val gen: T, val maxDepth: Int, val pipeDelay: Int = 1) extends Module {
   require(maxDepth > 0, s"Depth must be > 0, got $maxDepth")
 

@@ -71,7 +71,6 @@ class PeakDetect[T <: Data : Real](p: PeakDetectParams[T]) extends Module {
       idleCounter := 0.U
     }
 
-
     when (idleCounter === 0.U && hasMaxInShr) {
       when (hasNewMax) {
         consecutiveMaxes := 0.U

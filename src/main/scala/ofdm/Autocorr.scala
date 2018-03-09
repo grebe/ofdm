@@ -194,6 +194,10 @@ class AutocorrConfigIO[T <: Data](params: AutocorrParams[T]) extends Bundle {
 class AutocorrSimpleIO[T <: Data](params: AutocorrParams[T]) extends Bundle {
   val in = Flipped(Valid(params.protoIn))
   val out = Valid(params.protoOut.getOrElse(params.protoIn))
+  val energy = Valid(params.protoOut.getOrElse(params.protoIn) match {
+    case m: DspComplex[_] => m.real
+    case b => b
+  })
 
   val config = new AutocorrConfigIO(params)
 }
@@ -247,6 +251,19 @@ class AutocorrSimple[T <: Data : Ring](params: AutocorrParams[T]) extends Module
   io.out.valid := sum.io.out.valid
   io.out.bits := sum.io.out.bits
 
+  val energySum = Module(new OverlapSum(genOut, maxOverlap, pipeDelay = params.addPipeDelay))
+
+  energySum.io.depth.bits := io.config.depthOverlap
+  energySum.io.depth.valid := io.config.depthOverlap =/= RegNext(io.config.depthOverlap)
+
+  energySum.io.in.bits := ShiftRegister(shr.io.out.bits match {
+    case m: DspComplex[_] => m.abssq()
+    case b => b
+  }, params.mulPipeDelay, en = io.in.fire())
+  energySum.io.in.valid := ShiftRegister(shr_out_valid, params.mulPipeDelay, resetData = false.B, en = io.in.fire())
+
+  io.energy.valid := sum.io.out.valid
+  io.energy.bits  := energySum.io.out.bits
 }
 
 object BuildSampleAutocorr {
