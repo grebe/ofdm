@@ -13,7 +13,6 @@ class FIRIO[T <: Data](protoIn: T, protoOut: T) extends Bundle {
 class FIR[T <: Data : Ring](val protoIn: T, val protoOut: T, val taps: Seq[T], zero: T) extends Module {
   val io = IO(new FIRIO(protoIn, protoOut))
 
-
   val prods = taps.map { t => t * io.in.bits }
 
   val regs = Seq.fill(taps.length - 1) { Reg(protoOut) }

@@ -47,7 +47,6 @@ class AXI4StreamTimeAdapter(val timeWidth: Int)(implicit p: Parameters) extends 
         in.ready      := out.ready
     }
 
-
     streamDACOut.valid := false.B
     streamDACIns.reverse.foreach { case in =>
       in.ready := false.B

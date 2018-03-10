@@ -7,8 +7,6 @@ import dspblocks._
 import dsptools.numbers._
 import freechips.rocketchip.amba.axi4stream.AXI4StreamIdentityNode
 import freechips.rocketchip.config.Parameters
-import freechips.rocketchip.diplomacy._
-import freechips.rocketchip.regmapper._
 import freechips.rocketchip.tilelink._
 
 trait OFDMBlock[T <: Data, D, U, EO, EI, B <: Data] extends DspBlock[D, U, EO, EI, B] {
