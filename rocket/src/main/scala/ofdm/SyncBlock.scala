@@ -2,6 +2,7 @@ package ofdm
 
 import chisel3._
 import chisel3.core.requireIsChiselType
+import chisel3.util.log2Ceil
 import dspblocks._
 import dsptools.numbers._
 import freechips.rocketchip.amba.axi4._
@@ -50,6 +51,7 @@ trait SyncBlock[T <: Data, D, U, EO, EI, B <: Data] extends DspBlock[D, U, EO, E
 trait SyncBlockImp[T <: Data, D, U, EO, EI, B <: Data] extends LazyModuleImp with HasRegMap {
   def outer: SyncBlock[T, D, U, EO, EI, B] = wrapper.asInstanceOf[SyncBlock[T, D, U, EO, EI, B]]
   val proto: T = outer.proto
+  val complexProto = DspComplex(proto, proto)
   val maxNumPeaks: Int = outer.maxNumPeaks
   val autocorrParams: AutocorrParams[DspComplex[T]] = outer.autocorrParams
   implicit def ev1: Real[T]
@@ -61,8 +63,6 @@ trait SyncBlockImp[T <: Data, D, U, EO, EI, B <: Data] extends LazyModuleImp wit
   require(streamNode.in.nonEmpty)
   requireIsChiselType(proto)
 
-  //override val interrupts: Vec[Bool] = VecInit(Seq.fill(streamNode.in.length)(false.B))
-
   val (streamIns, streamInEdges) = streamNode.in.unzip
   streamInEdges.foreach { e =>
     require(e.bundle.u > 0, "Time must be encoded on the TUSER field but TUSER is 0 bits wide")
@@ -72,40 +72,38 @@ trait SyncBlockImp[T <: Data, D, U, EO, EI, B <: Data] extends LazyModuleImp wit
     // always ready
     in.ready := true.B
 
-    val complexProto = DspComplex(proto, proto)
-    //val matchedFilter = Module(new STF64MatchedFilter(proto, proto, proto))
-    val autocorr = Module(new AutocorrSimple(autocorrParams))
-    val peakDetect = Module(new SimplePeakDetect(in.params.u, maxNumPeaks))
+    interrupts.foreach { _ := false.B }
 
-    val threshold = RegInit(proto, ConvertableTo[T].fromDouble(0.5))
-    val depthApart = RegInit(UInt(), 0.U)
-    val depthOverlap = RegInit(UInt(), 0.U)
-    val peakDistance = RegInit(UInt(), 0.U)
-    val numPeaks = RegInit(UInt(), 0.U)
+    val sync     = Module(new Sync(SyncParams(
+      protoIn = complexProto,
+      protoOut = complexProto,
+      maxNumPeaks = maxNumPeaks,
+      timeStampWidth = in.params.u,
+      autocorrParams = autocorrParams
+    )))
+
+    val threshold    = RegInit(proto, ConvertableTo[T].fromDouble(0.5))
+    val depthApart   = RegInit(UInt(log2Ceil(autocorrParams.maxApart+1).W), 0.U)
+    val depthOverlap = RegInit(UInt(log2Ceil(autocorrParams.maxOverlap+1).W), 0.U)
+    val peakDistance = RegInit(UInt(log2Ceil(maxNumPeaks+1).W), 0.U)
+    val numPeaks     = RegInit(UInt(log2Ceil(maxNumPeaks+1).W), 0.U)
 
     val peak = RegInit(UInt(), 0.U)
     val corr = RegInit(complexProto, 0.U.asTypeOf(complexProto))
 
-    autocorr.io.config.depthApart := depthApart
-    autocorr.io.config.depthOverlap := depthOverlap
+    sync.io.autocorrConfig.depthApart   := depthApart
+    sync.io.autocorrConfig.depthOverlap := depthOverlap
 
-    peakDetect.io.peakDistance := peakDistance
+    sync.io.peakDetectConfig.peakDistance := peakDistance
 
-    //matchedFilter.io.in.valid := in.valid
-    //matchedFilter.io.in.bits := in.bits.data.asTypeOf(complexProto)
+    sync.io.in.valid       := in.valid
+    sync.io.in.bits.stream := in.bits.data.asTypeOf(complexProto)
+    sync.io.in.bits.time   := in.bits.user
 
-    autocorr.io.in.valid := in.valid
-    autocorr.io.in.bits := in.bits.data.asTypeOf(complexProto)
-
-    val peakDetected = (autocorr.io.out.bits.abssq() > threshold * autocorr.io.energy.bits) && autocorr.io.out.valid
-
-    peakDetect.io.in.valid := in.fire() && peakDetected
-    peakDetect.io.in.bits := in.bits.user
-
-    when(peakDetect.io.out.valid) {
+    when(sync.io.out.valid) {
       interrupts(idx) := true.B
-      peak := peakDetect.io.out.bits
-      corr := autocorr.io.out.bits
+      peak := sync.io.out.bits.time
+      corr := sync.io.out.bits.stream
     }
 
     val numFieldsPerStream = 7
@@ -118,9 +116,9 @@ trait SyncBlockImp[T <: Data, D, U, EO, EI, B <: Data] extends LazyModuleImp wit
       (stream * numFieldsPerStream + field) * beatBytes
     }
 
-    // require(depthApart.getWidth <= beatBits)
-    // require(depthOverlap.getWidth <= beatBits)
-    // require(threshold.getWidth <= beatBits)
+    require(depthApart.getWidth <= beatBits)
+    require(depthOverlap.getWidth <= beatBits)
+    require(threshold.getWidth <= beatBits)
 
     Seq(
       idxToAddress(idx, 0) -> Seq(RegField(
@@ -152,8 +150,8 @@ trait SyncBlockImp[T <: Data, D, U, EO, EI, B <: Data] extends LazyModuleImp wit
           (true.B, numPeaks)
         }),
         RegWriteFn((b: Bool, u: UInt) => {
-          peakDetect.io.numPeaks.valid := b
-          peakDetect.io.numPeaks.bits  := u
+          sync.io.peakDetectConfig.numPeaks.valid := b
+          sync.io.peakDetectConfig.numPeaks.bits  := u
           when (b) {
             numPeaks := u
           }

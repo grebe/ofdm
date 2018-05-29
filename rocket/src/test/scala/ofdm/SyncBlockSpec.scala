@@ -24,17 +24,14 @@ M <: LazyModuleImp
   extends PeekPokeTester(c) with AXI4MasterModel[M] {
   val outer = c.wrapper.asInstanceOf[SyncBlockTestModule[_]]
   override val memAXI: AXI4Bundle = outer.module.in
-  //val intbundles = outer.intnode.in.map(_._1)
+  val intbundles = outer.module.intout
 
-  axiWriteWord(0,  16)
-  axiWriteWord(8,  16)
-  axiWriteWord(24, 240)
-  axiWriteWord(32, 10)
+  axiWriteWord(0,  64)
+  axiWriteWord(8,  64)
+  axiWriteWord(24, 160)
+  axiWriteWord(32, 100)
 
-  for (i <- 0 until 500) {
-    //intbundles.foreach(i => println(s"Step $i\t${peek(i)}"))
-    step(1)
-  }
+  step(1000)
 }
 
 class AXI4MasterPort(params: AXI4MasterPortParameters)(implicit p: Parameters) extends LazyModule {
@@ -94,7 +91,7 @@ class SyncBlockSpec extends FlatSpec with Matchers {
   def axiDut[T <: Data : Real]
   (
     proto: T,
-    maxNumPeaks: Int = 32,
+    maxNumPeaks: Int = 512,
     autocorrParams: AutocorrParams[DspComplex[T]],
     transactions: Seq[AXI4StreamTransaction] = AXI4StreamTransaction.linearSeq(100)
   )(implicit valName: ValName) = {
@@ -122,9 +119,9 @@ class SyncBlockSpec extends FlatSpec with Matchers {
         (
           proto,
           autocorrParams = AutocorrParams(DspComplex(proto),
-            32,
-            32),
-          transactions = (IEEE80211.stf ++ Seq.fill(500)(Complex(0, 0))).zipWithIndex.map { case (c, i) =>
+            512,
+            512),
+          transactions = (IEEE80211.stf ++ Seq.fill(500)(Complex(0, 0)) ++ IEEE80211.stf ++ Seq.fill(500)(Complex(0, 0))).zipWithIndex.map { case (c, i) =>
               AXI4StreamTransaction(data = complexToBigInt(c), user = i)
           }
         )

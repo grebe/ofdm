@@ -3,7 +3,6 @@ package dsptools
 import chisel3._
 import chisel3.util.HasBlackBoxInline
 import firrtl.ir.Type
-import firrtl_interpreter._
 
 import scala.collection.mutable
 
@@ -34,7 +33,7 @@ trait HasBlackBoxClock {
   val clock = Input(Clock())
 }
 
-class SyncROMIO(addrWidth: Int, dataWidth: Int) extends Bundle {
+class SyncROMIO(val addrWidth: Int, val dataWidth: Int) extends Bundle {
   val addr  = Input(UInt(addrWidth.W))
   val data  = Output(UInt(dataWidth.W))
 }
@@ -88,34 +87,33 @@ object SyncROMBlackBox {
 }
 
 // implementation for firrtl interpreter
-class SyncROMBlackBoxImplementation(val name: String, val table: Seq[BigInt], dataWidth: Int) extends BlackBoxImplementation {
+class SyncROMBlackBoxImplementation(val name: String, val table: Seq[BigInt], dataWidth: Int, default: BigInt = 0)
+  extends firrtl_interpreter.BlackBoxImplementation {
+  import firrtl_interpreter._
+
   var lastCycleAddr: BigInt    = BigInt(0)
   var currentCycleAddr: BigInt = BigInt(0)
-  def cycle(): Unit = {
+  override def cycle(): Unit = {
     println("cycle got called")
     lastCycleAddr = currentCycleAddr
   }
 
-  def execute(inputValues: Seq[Concrete], tpe: Type, outputName: String): Concrete = {
+  override def execute(inputValues: Seq[Concrete], tpe: Type, outputName: String): Concrete = {
     require(outputName == "data", s"Only output should be data, got $outputName")
-    // TODO cycle() should do this
-    lastCycleAddr = currentCycleAddr
     currentCycleAddr = inputValues.head.value
+    println(s"execute got called on $outputName for addr $currentCycleAddr")
     val tableValue = if (lastCycleAddr.toInt < table.length) {
       table(lastCycleAddr.toInt)
     } else {
-      BigInt(0) // default
+      default
     }
     ConcreteUInt(tableValue, dataWidth, inputValues.head.poisoned)
   }
 
-  def outputDependencies(outputName: String) = outputName match {
-    case "data" => Seq(fullName("addr"))
-    case _      => Seq.empty
-  }
+  override def outputDependencies(outputName: String) = Seq("addr")
 }
 
-class SyncROMBlackBoxFactory extends BlackBoxFactory {
+class SyncROMBlackBoxFactory extends firrtl_interpreter.BlackBoxFactory {
   override def createInstance(instanceName: String, blackBoxName: String) =
   SyncROMBlackBox.interpreterMap.get(blackBoxName).map {
     case (table, dataWidth) => new SyncROMBlackBoxImplementation(instanceName, table, dataWidth)

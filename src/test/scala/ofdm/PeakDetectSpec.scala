@@ -28,7 +28,7 @@ class PeakDetectSpec extends FlatSpec with Matchers {
   }
 
 
-  it should "detect peaks with FixedPoint" in {
+  it should "detect peaks with FixedPoint" ignore {
     val p = PeakDetectParams(
       protoCorr=FixedPoint(32.W, 16.BP),
       protoEnergyFF=FixedPoint(32.W, 31.BP),

@@ -51,7 +51,7 @@ object ShiftRegisterMem {
   }
 
   def apply[T <: Data](in: Valid[T], maxDepth: Int, depth: Valid[UInt]): Valid[T] = {
-    val shiftRegisterMem = Module(new ShiftRegisterMem(in.bits.cloneType, maxDepth))
+    val shiftRegisterMem = Module(new ShiftRegisterMem(chiselTypeOf(in.bits), maxDepth))
     shiftRegisterMem.io.in := in
     shiftRegisterMem.io.depth := depth
     shiftRegisterMem.io.out

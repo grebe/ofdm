@@ -2,9 +2,9 @@
 
 // Provide a managed dependency on X if -DXVersion="" is supplied on the command line.
 val defaultVersions = Map(
-  "chisel3" -> "3.0.2",
-  "chisel-iotesters" -> "1.1.3-SNAPSHOT",
-  "dsptools" -> "1.0.3-SNAPSHOT",
+  "chisel3" -> "3.1.0",
+  "chisel-iotesters" -> "1.2.0",
+  "dsptools" -> "1.1.0",
   "rocket-dsp-utils" -> "1.0-SNAPSHOT"
 )
 

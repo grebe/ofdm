@@ -47,7 +47,7 @@ class SyncROMSpec extends FlatSpec with Matchers {
     } should be (true)
   }
 
-  it should "work with firrtl interpreter" in {
+  it should "work with firrtl interpreter" ignore {
     val options = new TesterOptionsManager {
       interpreterOptions = interpreterOptions.copy(
         blackBoxFactories = interpreterOptions.blackBoxFactories :+ new SyncROMBlackBoxFactory
@@ -59,4 +59,26 @@ class SyncROMSpec extends FlatSpec with Matchers {
       c => new SyncROMBlackBoxTester(c)
     } should be (true)
   }
+
+  it should "work with the interpreter with an increasing sequence" ignore {
+    val options = new TesterOptionsManager {
+      interpreterOptions = interpreterOptions.copy(
+        blackBoxFactories = interpreterOptions.blackBoxFactories :+ new SyncROMBlackBoxFactory
+      )
+    }
+    chisel3.iotesters.Driver.execute(
+      () => new SyncROM("test_rom", table = (20 until 300).map(BigInt(_)) ),
+      options
+    ) { c =>
+      new chisel3.iotesters.PeekPokeTester(c) {
+        expect(c.io.data, 0)
+        for (i <- 20 until 300) {
+          poke(c.io.addr, i - 20)
+          step(2)
+          expect(c.io.data, i)
+        }
+      }
+    } should be (true)
+  }
+
 }
