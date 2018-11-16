@@ -61,7 +61,7 @@ class NCOTable[T <: Data : Ring : BinaryRepresentation : ConvertableTo](params: 
 
   // quarter wave
   val sinTable = (0 until params.tableSize).map { i =>
-    val sinValue = sin(0.5 * Pi * (i.toDouble) / params.tableSize)
+    val sinValue = sin(0.5 * Pi * i.toDouble / params.tableSize)
     val asT = ConvertableTo[T].fromDouble(sinValue, params.protoTable)
     asT.litValue()
   }

@@ -43,7 +43,7 @@ class FIRSpec extends FlatSpec with Matchers {
 
     println(out)
 
-    val xs = 0 to out.length
+    val xs = out.indices
     val ys = out.map(x => 10*log10(x.abs))
     println(s"Absolute values are $ys")
 

@@ -48,13 +48,13 @@ class AXI4StreamTimeAdapter(val timeWidth: Int)(implicit p: Parameters) extends 
     }
 
     streamDACOut.valid := false.B
-    streamDACIns.reverse.foreach { case in =>
+    streamDACIns.reverse.foreach { in =>
       in.ready := false.B
       val dacValid = in.valid && in.bits.user <= time
-      when (dacValid) {
+      when(dacValid) {
         streamDACOut.valid := true.B
-        streamDACOut.bits  := in.bits
-        in.ready           := streamDACOut.ready
+        streamDACOut.bits := in.bits
+        in.ready := streamDACOut.ready
       }
     }
   }

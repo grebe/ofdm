@@ -2,38 +2,46 @@
 
 // Provide a managed dependency on X if -DXVersion="" is supplied on the command line.
 val defaultVersions = Map(
-  "chisel3" -> "3.1.0",
-  "chisel-iotesters" -> "1.2.0",
-  "dsptools" -> "1.1.0",
-  "rocket-dsp-utils" -> "1.0-SNAPSHOT"
+  "dsptools" -> "1.2-102318-SNAPSHOT",
+  "rocket-dsptools" -> "1.2-102318-SNAPSHOT"
 )
 
 val commonSettings = Seq(
   organization := "edu.berkeley.cs",
   version      := "0.1",
-  scalaVersion := "2.11.11",
+  scalaVersion := "2.12.7",
   resolvers ++= Seq(
     Resolver.sonatypeRepo("snapshots"),
     Resolver.sonatypeRepo("release")
   ),
-  scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature", "-language:reflectiveCalls"),
+  scalacOptions ++= Seq(
+    "-deprecation",
+    "-explaintypes",
+    "-feature",
+    "-language:reflectiveCalls",
+    "-unchecked",
+    "-Xcheckinit",
+    "-Xlint:infer-any",
+    "-Xlint:missing-interpolator",
+    "-Xsource:2.11",
+    "-Ywarn-unused:imports",
+    "-Ywarn-unused:locals"
+  ),
   // scalacOptions ++= scalacOptions(scalaVersion.value),
   javacOptions ++= javacOptionsVersion(scalaVersion.value)
 )
 
 val ofdmSettings = Seq(
   name := "ofdm",
-  libraryDependencies ++= Seq("chisel3", "chisel-iotesters", "dsptools").map {
+  libraryDependencies ++= Seq("dsptools").map {
     dep: String => "edu.berkeley.cs" %% dep % sys.props.getOrElse(dep + "Version", defaultVersions(dep))
   },
-  libraryDependencies += ("com.gilt" %% "handlebars-scala" % "2.1.1").exclude("org.slf4j", "slf4j-simple"),
-  libraryDependencies += "org.vegas-viz" %% "vegas" % "0.3.11",
   libraryDependencies += "org.tukaani" % "xz" % "1.0"
 )
 
 val ofdmRocketSettings = Seq(
   name := "ofdm-rocket",
-  libraryDependencies ++= Seq("rocket-dsp-utils").map {
+  libraryDependencies ++= Seq("rocket-dsptools").map {
     dep: String => "edu.berkeley.cs" %% dep % sys.props.getOrElse(dep + "Version", defaultVersions(dep))
   }
 )

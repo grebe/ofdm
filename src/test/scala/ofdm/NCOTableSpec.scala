@@ -2,8 +2,6 @@ package ofdm
 
 import breeze.math.Complex
 import chisel3._
-import chisel3.experimental.FixedPoint
-import chisel3.util.Cat
 import dsptools.numbers._
 import dsptools.numbers.implicits._
 import org.scalatest.{FlatSpec, Matchers}
@@ -23,7 +21,7 @@ class NCOTableSpec extends FlatSpec with Matchers {
       c => new FixedNCOTester(c) { arr = this.sweepPhase() }
     }
 
-    val xs = 0 until arr.length
+    val xs = arr.indices
     val reals = arr.map(_.real)
     val imags = arr.map(_.imag)
 

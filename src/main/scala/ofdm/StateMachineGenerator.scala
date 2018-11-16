@@ -15,7 +15,7 @@ case class StateMachineGeneratorIO(nStates: Int, inWidth: Int, outWidth: Int) ex
 }
 
 class StateMachineGenerator(nStates: Int, inWidth: Int, outWidth: Int) extends Module {
-  val io = IO(new StateMachineGeneratorIO(nStates = nStates, inWidth = inWidth, outWidth = outWidth))
+  val io = IO(StateMachineGeneratorIO(nStates = nStates, inWidth = inWidth, outWidth = outWidth))
 
   val mem = SyncReadMem(nStates, UInt(outWidth.W))
 

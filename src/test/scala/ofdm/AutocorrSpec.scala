@@ -1,16 +1,9 @@
 package ofdm
 
-import breeze.math.Complex
-import breeze.numerics.log10
 import chisel3._
-import chisel3.core.FixedPoint
 import chisel3.iotesters.TesterOptionsManager
-import dsptools.numbers._
 import dsptools.numbers.implicits._
-import ieee80211.IEEE80211
 import org.scalatest.{FlatSpec, Matchers}
-
-import scala.collection.{Seq, mutable}
 
 class AutocorrSpec extends FlatSpec with Matchers {
   val manager = new TesterOptionsManager {

@@ -2,7 +2,6 @@ package ofdm
 
 import breeze.numerics.{atan, atanh, pow}
 import chisel3._
-import chisel3.core.FixedPoint
 import chisel3.util._
 import dsptools.SyncROM
 import dsptools.numbers._
@@ -92,7 +91,7 @@ class EmptyCORDICConfigRecord extends CORDICConfigRecord {
 
 case class VectoringCORDICStageSelConfig[T <: Data]
 (
-  m: MFunc[T] = CORDICStageMCircular.apply[T] _
+  m: MFunc[T] = CORDICStageMCircular.apply _
 ) extends CORDICStageSelConfig[T] {
   val record = new EmptyCORDICConfigRecord
   val d = CORDICStageSelVectoring.apply _
@@ -100,7 +99,7 @@ case class VectoringCORDICStageSelConfig[T <: Data]
 
 case class RotationCORDICStageSelConfig[T <: Data]
 (
-  m: MFunc[T] = CORDICStageMCircular.apply[T] _
+  m: MFunc[T] = CORDICStageMCircular.apply _
 ) extends CORDICStageSelConfig[T] {
   val record = new EmptyCORDICConfigRecord
   val d = CORDICStageSelRotation.apply _
@@ -178,7 +177,6 @@ object CORDICConstantGeneration {
         val mode = c.mode
         val isCircular   = mode === ConfigurableCORDICConfigRecord.CIRCULAR
         val isLinear     = mode === ConfigurableCORDICConfigRecord.LINEAR
-        val isHyperbolic = mode === ConfigurableCORDICConfigRecord.HYPERBOLIC
         Mux(isCircular, circularValue, Mux(isLinear, linearValue, hyperValue))
       case _ => throw new Exception("Configurable ROM should have config record of type ConfigurableCORDICConfigRecord")
     }

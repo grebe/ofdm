@@ -1,7 +1,7 @@
 package ofdm
 
 import chisel3._
-import chisel3.util.{RegEnable, ShiftRegister, Valid}
+import chisel3.util.{ShiftRegister, Valid}
 import dsptools.numbers._
 
 case class SyncParams[T <: Data]

@@ -17,7 +17,7 @@ class PipelinedDividerTester(c: PipelinedDivider) extends PeekPokeTester(c) {
     }
     poke(c.io.in.valid, 0)
     // keep going to flush pipe
-    for (i <- 0 until 4 * c.n) {
+    for (_ <- 0 until 4 * c.n) {
       step(1)
       if (peek(c.io.out.valid) != BigInt(0)) {
         out :+= peek(c.io.out.bits)

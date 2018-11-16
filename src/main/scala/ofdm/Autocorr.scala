@@ -1,12 +1,10 @@
 package ofdm
 
 import chisel3._
-import chisel3.experimental.FixedPoint
 import chisel3.core.requireIsChiselType
+import chisel3.experimental.FixedPoint
 import chisel3.util._
 import dsptools.numbers._
-
-import scala.collection.Seq
 
 case class AutocorrParams[T <: Data]
 (
@@ -36,7 +34,7 @@ class AutocorrSimpleIO[T <: Data](params: AutocorrParams[DspComplex[T]]) extends
   val out = Valid(protoOut)
   val energy = Valid(protoOut.real)
 
-  val config = new AutocorrConfigIO(params)
+  val config = AutocorrConfigIO(params)
 }
 
 class AutocorrSimple[T <: Data : Ring](params: AutocorrParams[DspComplex[T]]) extends Module {

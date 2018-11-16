@@ -48,7 +48,7 @@ class PeakDetectSpec extends FlatSpec with Matchers {
 
 
       // poke in some noise at -15dB
-      for (i <- 0 until 200) {
+      for (_ <- 0 until 200) {
         poke(c.io.in.bits.corr, nextComplex(-15.0))
         step(1)
       }

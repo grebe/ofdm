@@ -4,14 +4,8 @@ import java.io._
 import java.nio.{ByteBuffer, ByteOrder}
 
 import breeze.math.Complex
-import breeze.numerics.atan2
-
-import vegas._
-import vegas.render.WindowRenderer._
 
 import org.tukaani.xz._
-
-import scala.collection.mutable.ArrayBuffer
 
 object ADITrace {
   // These are compressed with xz
@@ -22,10 +16,6 @@ object ADITrace {
 
     // sometimes, java is dumb
     val buf = new ByteArrayOutputStream()
-
-    var byteRead: Int = 0
-
-    import chisel3.util.is
 
     var nRead: Int = 0
     var keepGoing: Boolean = true
@@ -40,7 +30,7 @@ object ADITrace {
       }
     }
 
-    val bytes = buf.toByteArray()
+    val bytes = buf.toByteArray
 
     val bb = ByteBuffer.wrap(bytes)
     bb.order(ByteOrder.LITTLE_ENDIAN)
@@ -92,42 +82,9 @@ object ADITraceMain {
   def main(arg: Array[String]): Unit = {
     val output = ADITrace.binaryResource("/waveforms/wifi-bpsk-loopback-cable.dat.xz")
     val input  = ADITrace.textResource("/waveforms/wifi_bpsk.txt")
-    def signalToMap(in: Seq[Complex], name: String) = in.zipWithIndex.flatMap { case (s, idx) =>
-      Seq(
-        Map(
-          "time" -> idx,
-          "signal" -> s.real,
-          "name" -> (name + " Real")
-        ),
-        Map(
-          "time" -> idx,
-          "signal" -> s.imag,
-          "name" -> (name + " Imag")
-        )
-      )
-    }.toList
 
-    // val cfoSignalMap = signalToMap(output.take(4096 * 2), "Loopback Cable") ++ signalToMap(input.take(4096*2), "Input")
-    val cfoSignalMap = signalToMap(input.take(4096*2), "Input")
-
+    println(s"Input = $input")
     println(s"Output = $output")
-
-    for (i <- 0 until 30) {
-      print(s"${output(i)}, ")
-    }
     println()
-
-    println(cfoSignalMap)
-    Vegas("Sample Multi Series Line Chart", width=1024, height=960)
-      .withData(cfoSignalMap)
-      .mark(Line)
-      .encodeX("time", Quant)
-      .encodeY("signal", Quant)
-      .encodeColor(
-        field="name",
-        dataType=Nominal,
-        legend=Legend(orient="left", title="Signal Name"))
-      // .encodeDetailFields(Field(field="name", dataType=Nominal))
-      .show
   }
 }

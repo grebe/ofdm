@@ -11,7 +11,7 @@ trait IterativeCORDICTester[T <: Data] { this: PeekPokeTester[IterativeCORDIC[T]
 
   val maxCycles = 100
 
-  type XYZ = Tuple3[Double, Double, Double]
+  type XYZ = (Double, Double, Double)
 
   def x(implicit xyz: XYZ): Double = xyz._1
   def y(implicit xyz: XYZ): Double = xyz._2
@@ -52,7 +52,7 @@ trait IterativeCORDICTester[T <: Data] { this: PeekPokeTester[IterativeCORDIC[T]
       peekZ()
       step(1)
     }
-    (peekX, peekY, peekZ)
+    (peekX(), peekY(), peekZ())
   }
 
   def atan2Trial(x: Double, y: Double): Double = {
@@ -132,7 +132,7 @@ trait PipelinedCORDICTester[T <: Data] { this: PeekPokeTester[PipelinedCORDIC[T]
 
   val maxCycles = 100
 
-  type XYZ = Tuple3[Double, Double, Double]
+  type XYZ = (Double, Double, Double)
 
   def x(implicit xyz: XYZ): Double = xyz._1
   def y(implicit xyz: XYZ): Double = xyz._2
@@ -156,13 +156,13 @@ trait PipelinedCORDICTester[T <: Data] { this: PeekPokeTester[PipelinedCORDIC[T]
       pokeZ(z)
       step(1)
       if (peek(c.io.out.valid) != BigInt(0)) {
-        output +:= (peekX, peekY, peekZ)
+        output +:= (peekX(), peekY(), peekZ())
       }
     }
     // flush pipe
     var cycle = 0
     while (cycle < maxCycles && peek(c.io.out.valid) != BigInt(0)) {
-      output +:= (peekX, peekY, peekZ)
+      output +:= (peekX(), peekY(), peekZ())
       cycle += 1
     }
 
@@ -176,7 +176,7 @@ trait PipelinedCORDICTester[T <: Data] { this: PeekPokeTester[PipelinedCORDIC[T]
   def atan2Trial(x: Double, y: Double): Double = {
     val out = atan2Trials(Seq((x, y)))
     require(out.length == 1)
-    out(0)
+    out.head
   }
 
   def rotationTrials(in: Seq[XYZ]): Seq[XYZ] = {
@@ -186,7 +186,7 @@ trait PipelinedCORDICTester[T <: Data] { this: PeekPokeTester[PipelinedCORDIC[T]
   def rotationTrial(xyz: XYZ): XYZ = {
     val out = rotationTrials(Seq(xyz))
     require(out.length == 1)
-    out(0)
+    out.head
   }
 
   def sinTrials(x: Seq[Double]): Seq[Double] = {
@@ -212,7 +212,7 @@ trait PipelinedCORDICTester[T <: Data] { this: PeekPokeTester[PipelinedCORDIC[T]
   def vecMagTrial(x: Double, y: Double): Double = {
     val out = vecMagTrials(Seq((x, y)))
     require(out.length == 1)
-    out(0)
+    out.head
   }
 
   def polar2RectTrials(in: Seq[(Double, Double)]): Seq[(Double, Double)] = {
@@ -222,7 +222,7 @@ trait PipelinedCORDICTester[T <: Data] { this: PeekPokeTester[PipelinedCORDIC[T]
   def polar2RectTrial(r: Double, theta: Double): (Double, Double) = {
     val out = polar2RectTrials(Seq((r, theta)))
     require(out.length == 1)
-    out(0)
+    out.head
   }
 
   def rect2PolarTrials(in: Seq[(Double, Double)]): Seq[(Double, Double)] = {
@@ -232,7 +232,7 @@ trait PipelinedCORDICTester[T <: Data] { this: PeekPokeTester[PipelinedCORDIC[T]
   def rect2PolarTrial(x: Double, y: Double): (Double, Double) = {
     val out = rect2PolarTrials(Seq((x, y)))
     require(out.length == 1)
-    out(0)
+    out.head
   }
 }
 

@@ -26,7 +26,7 @@ class CFOCorrectIO[T <: Data](p: CFOCorrectParams[T]) extends Bundle {
 
 class CFOCorrect[T <: Data : Real : BinaryRepresentation](p: CFOCorrectParams[T]) extends Module {
   requireIsChiselType(p.protoIn)
-  p.protoOut.map(requireIsChiselType(_))
+  p.protoOut.foreach(requireIsChiselType(_))
 
   val io = IO(new CFOCorrectIO(p))
 

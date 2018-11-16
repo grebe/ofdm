@@ -2,7 +2,7 @@ package ofdm
 
 import chisel3._
 import chisel3.core.requireIsChiselType
-import chisel3.util.{Irrevocable, log2Ceil}
+import chisel3.util.log2Ceil
 
 case class PacketizerIO[T <: Data](proto: T, size: Int) extends Bundle {
   requireIsChiselType(proto)
@@ -13,7 +13,7 @@ case class PacketizerIO[T <: Data](proto: T, size: Int) extends Bundle {
 }
 
 class Packetizer[T <: Data](proto: T, size: Int) extends Module {
-  val io = IO(new PacketizerIO(proto, size))
+  val io = IO(PacketizerIO(proto, size))
 
   val count = RegInit(UInt(log2Ceil(size).W), 0.U)
   val nextCount = Wire(UInt())

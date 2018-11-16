@@ -22,7 +22,7 @@ class ShiftRegisterTester(c: ShiftRegisterMem[UInt], depth: Int) extends PeekPok
   poke(c.io.depth.valid, 0)
   expect(c.io.out.valid, 0)
 
-  for (i <- 0 until 100 * depth) {
+  for (_ <- 0 until 100 * depth) {
     val in = BigInt(width, Random)
     val valid = Random.nextBoolean()
 

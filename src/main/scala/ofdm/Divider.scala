@@ -105,10 +105,10 @@ class PipelinedDivider(val n: Int, val conversionDelay: Int = 1) extends Module 
   val stages = Seq.tabulate(n + 1) { i: Int => Module(new NonRestoringStage(n + 1, fixedIdx = Some(n-i))) }
   val d: UInt = (io.in.bits.denom << (n + 1)).asTypeOf(UInt()) //UInt((2*n).W))
 
-  val (p, q, _) = stages.foldLeft( (io.in.bits.num, 0.U, d) ) { case ( (p, q, d), stage) =>
-    stage.io.d := d
-    stage.io.pin := p
-    stage.io.qin := q
+  val (p, q, _) = stages.foldLeft( (io.in.bits.num, 0.U, d) ) { case ( (pin, qin, din), stage) =>
+    stage.io.d := din
+    stage.io.pin := pin
+    stage.io.qin := qin
 
     (RegNext(stage.io.pout), RegNext(stage.io.qout), RegNext(d))
     //(stage.io.pout, stage.io.qout)

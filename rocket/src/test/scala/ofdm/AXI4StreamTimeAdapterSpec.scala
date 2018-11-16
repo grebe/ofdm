@@ -42,7 +42,7 @@ class AXI4StreamTimeAdapaterTestModule extends Module {
 
 class AXI4StreamTimeAdapterTester(c: AXI4StreamTimeAdapaterTestModule)
   extends PeekPokeTester(c)
-  with AXI4StreamSlaveModel[AXI4StreamTimeAdapaterTestModule] {
+  with AXI4StreamSlaveModel {
 
   bindSlave(c.io.adc).addExpects(Seq.tabulate(100)(d => AXI4StreamTransactionExpect(data = Some(d))))
   bindSlave(c.io.dac).addExpects(Seq.tabulate(100)(x => AXI4StreamTransactionExpect(data = Some(100 + x))))

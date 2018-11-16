@@ -1,17 +1,12 @@
 package ofdm
 
+import breeze.math.Complex
 import chisel3._
 import chisel3.experimental._
-import dsptools.numbers._
-import breeze.math.Complex
-import breeze.numerics.atan2
 import dsptools.DspTester
+import dsptools.numbers._
 import ieee80211.{ADITrace, IEEE80211}
 import org.scalatest.{FlatSpec, Matchers}
-import vegas._
-import vegas.render.WindowRenderer._
-
-import scala.util.DynamicVariable
 
 class SyncSpec extends FlatSpec with Matchers {
 
@@ -43,7 +38,7 @@ class SyncSpec extends FlatSpec with Matchers {
             }
           }
           poke(c.io.in.bits.stream, Complex(0.0, 0.0))
-          for (i <- 0 until 100) {
+          for (_ <- 0 until 100) {
             step(1)
             if (peek(c.io.out.valid)) {
               output = output :+ (peek(c.io.out.bits.stream), peek(c.io.out.bits.time))
@@ -79,29 +74,7 @@ class SyncSpec extends FlatSpec with Matchers {
     println(cfoSignal.toString)
     println(s"Output was:")
     println(output.toString)
-
-    def signalToMap(in: Seq[Complex], name: String) = in.zipWithIndex.map { case (s, idx) =>
-      Map(
-        "time" -> idx,
-        "signal" -> atan2(s.real, s.imag),
-        "name" -> name
-      )
-    }
-
-    val cfoSignalMap = signalToMap(output.take(4096).map(_._1), "Corrected") ++ signalToMap(cfoSignal.take(4096), "Raw")
-
-    Vegas("Sample Multi Series Line Chart", width=1024, height=960)
-      .withData(cfoSignalMap)
-      .mark(Line)
-      .encodeX("time", Quant)
-      .encodeY("signal", Quant)
-      .encodeColor(
-        field="name",
-        dataType=Nominal,
-        legend=Legend(orient="left", title="Signal Name"))
-      .encodeDetailFields(Field(field="name", dataType=Nominal))
-      .show
-  }
+}
 
   it should "correct CFO of 50 kHz with STF" in {
     val testSignal = IEEE80211.stf ++ Seq.fill(500) { Complex(0.125, 0) }
@@ -114,29 +87,7 @@ class SyncSpec extends FlatSpec with Matchers {
     println(cfoSignal.toString)
     println(s"Output was:")
     println(output.toString)
-
-    def signalToMap(in: Seq[Complex], name: String) = in.zipWithIndex.map { case (s, idx) =>
-        Map(
-          "time" -> idx,
-          "signal" -> atan2(s.real, s.imag),
-          "name" -> name
-        )
-    }
-
-    val cfoSignalMap = signalToMap(output.take(4096).map(_._1), "Corrected") ++ signalToMap(cfoSignal.take(4096), "Raw")
-
-    Vegas("Sample Multi Series Line Chart", width=1024, height=960)
-      .withData(cfoSignalMap)
-      .mark(Line)
-      .encodeX("time", Quant)
-      .encodeY("signal", Quant)
-      .encodeColor(
-        field="name",
-        dataType=Nominal,
-        legend=Legend(orient="left", title="Signal Name"))
-      .encodeDetailFields(Field(field="name", dataType=Nominal))
-      .show
-  }
+ }
 
   it should "correct CFO for Rimas's test signal" ignore {
     val testSignal = ADITrace.textResource("/waveforms/wifi_bpsk.txt")
@@ -149,36 +100,7 @@ class SyncSpec extends FlatSpec with Matchers {
     println(cfoSignal.toString)
     println(s"Output was:")
     println(output.toString)
-
-    def signalToMap(in: Seq[Complex], name: String) = in.zipWithIndex.flatMap { case (s, idx) =>
-      Seq(
-        Map(
-          "time" -> idx,
-          "signal" -> s.real,
-          "name" -> (name + " Real")
-        ),
-        Map(
-          "time" -> idx,
-          "signal" -> s.imag,
-          "name" -> (name + " Imag")
-        )
-      )
-    }
-
-    val cfoSignalMap = signalToMap(output.map(_._1), "Corrected") ++ signalToMap(cfoSignal, "Raw")
-
-    Vegas("Rimas's Test Signal (raw input)", width=1024, height=960)
-      .withData(cfoSignalMap)
-      .mark(Line)
-      .encodeX("time", Quant)
-      .encodeY("signal", Quant)
-      .encodeColor(
-        field="name",
-        dataType=Nominal,
-        legend=Legend(orient="left", title="Signal Name"))
-      .encodeDetailFields(Field(field="name", dataType=Nominal))
-      .show
-  }
+}
 
   it should "correct CFO for Rimas's test signal (digital loopback)" ignore {
     val testSignal = ADITrace.binaryResource("/waveforms/wifi-bpsk-loopback-digital.dat.xz")
@@ -192,34 +114,6 @@ class SyncSpec extends FlatSpec with Matchers {
     println(s"Output was:")
     println(output.toString)
 
-    def signalToMap(in: Seq[Complex], name: String) = in.zipWithIndex.flatMap { case (s, idx) =>
-      Seq(
-        Map(
-          "time" -> idx,
-          "signal" -> s.real,
-          "name" -> (name + " Real")
-        ),
-        Map(
-          "time" -> idx,
-          "signal" -> s.imag,
-          "name" -> (name + " Imag")
-        )
-      )
-    }
-
-    val cfoSignalMap = signalToMap(output.map(_._1), "Corrected") ++ signalToMap(cfoSignal, "Raw")
-
-    Vegas("Rimas's Test Signal (raw input)", width=1024, height=960)
-      .withData(cfoSignalMap)
-      .mark(Line)
-      .encodeX("time", Quant)
-      .encodeY("signal", Quant)
-      .encodeColor(
-        field="name",
-        dataType=Nominal,
-        legend=Legend(orient="left", title="Signal Name"))
-      .encodeDetailFields(Field(field="name", dataType=Nominal))
-      .show
   }
 
   it should "correct CFO for Rimas's test signal (cable loopback)" ignore {
@@ -234,34 +128,6 @@ class SyncSpec extends FlatSpec with Matchers {
     println(s"Output was:")
     println(output.toString)
 
-    def signalToMap(in: Seq[Complex], name: String) = in.zipWithIndex.flatMap { case (s, idx) =>
-      Seq(
-        Map(
-          "time" -> idx,
-          "signal" -> s.real,
-          "name" -> (name + " Real")
-        ),
-        Map(
-          "time" -> idx,
-          "signal" -> s.imag,
-          "name" -> (name + " Imag")
-        )
-      )
-    }
-
-    val cfoSignalMap = signalToMap(output.map(_._1), "Corrected") ++ signalToMap(cfoSignal, "Raw")
-
-    Vegas("Rimas's Test Signal (raw input)", width=1024, height=960)
-      .withData(cfoSignalMap)
-      .mark(Line)
-      .encodeX("time", Quant)
-      .encodeY("signal", Quant)
-      .encodeColor(
-        field="name",
-        dataType=Nominal,
-        legend=Legend(orient="left", title="Signal Name"))
-      .encodeDetailFields(Field(field="name", dataType=Nominal))
-      .show
   }
 
   it should "correct CFO for Rimas's test signal (two board)" in {
@@ -275,35 +141,6 @@ class SyncSpec extends FlatSpec with Matchers {
     println(cfoSignal.toString)
     println(s"Output was:")
     println(output.toString)
-
-    def signalToMap(in: Seq[Complex], name: String) = in.zipWithIndex.flatMap { case (s, idx) =>
-      Seq(
-        Map(
-          "time" -> idx,
-          "signal" -> s.real,
-          "name" -> (name + " Real")
-        ),
-        Map(
-          "time" -> idx,
-          "signal" -> s.imag,
-          "name" -> (name + " Imag")
-        )
-      )
-    }
-
-    val cfoSignalMap = signalToMap(output.map(_._1), "Corrected") ++ signalToMap(cfoSignal, "Raw")
-
-    Vegas("Rimas's Test Signal (raw input)", width=1024, height=960)
-      .withData(cfoSignalMap)
-      .mark(Line)
-      .encodeX("time", Quant)
-      .encodeY("signal", Quant)
-      .encodeColor(
-        field="name",
-        dataType=Nominal,
-        legend=Legend(orient="left", title="Signal Name"))
-      .encodeDetailFields(Field(field="name", dataType=Nominal))
-      .show
   }
 
 }

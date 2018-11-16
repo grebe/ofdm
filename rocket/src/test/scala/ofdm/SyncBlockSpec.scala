@@ -7,10 +7,10 @@ import chisel3.experimental._
 import chisel3.iotesters.PeekPokeTester
 import dsptools.numbers._
 import freechips.rocketchip.amba.axi4._
-import freechips.rocketchip.amba.axi4stream.{AXI4StreamFuzzer, AXI4StreamMasterModel, AXI4StreamTransaction}
+import freechips.rocketchip.amba.axi4stream.{AXI4StreamFuzzer, AXI4StreamTransaction}
 import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.diplomacy.{LazyModule, LazyModuleImp, ValName}
-import freechips.rocketchip.interrupts.{IntSinkNode, IntSinkParameters, IntSinkPortParameters, IntSinkPortSimple}
+import freechips.rocketchip.interrupts.{IntSinkNode, IntSinkPortSimple}
 import ieee80211.IEEE80211
 import org.scalatest.{FlatSpec, Matchers}
 
@@ -21,7 +21,7 @@ M <: LazyModuleImp
 //  T, AXI4MasterPortParameters, AXI4SlavePortParameters, AXI4EdgeParameters, AXI4EdgeParameters, AXI4Bundle
 //  ]
 ](c: M)
-  extends PeekPokeTester(c) with AXI4MasterModel[M] {
+  extends PeekPokeTester(c) with AXI4MasterModel {
   val outer = c.wrapper.asInstanceOf[SyncBlockTestModule[_]]
   override val memAXI: AXI4Bundle = outer.module.in
   val intbundles = outer.module.intout

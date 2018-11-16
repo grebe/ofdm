@@ -16,16 +16,16 @@ class CORDICSpec extends FlatSpec with Matchers {
       () => IterativeCORDIC.circularVectoring(FixedPoint(16.W, 8.BP), FixedPoint(16.W, 12.BP))) { c =>
       new FixedPointIterativeCORDICTester(c) {
         val maxAngleIdxs = 500
-        for (mag <- 0.5 to 1.5 by 0.2) {
+        for (mag <- BigDecimal(0.5) to 1.5 by 0.2) {
           for (angleIdx <- -maxAngleIdxs until maxAngleIdxs) {
             val angle = 0.5 * math.Pi * angleIdx.toDouble / maxAngleIdxs
 
-            val x = mag * cos(angle)
-            val y = mag * sin(angle)
+            val x = mag.toDouble * cos(angle)
+            val y = mag.toDouble * sin(angle)
 
             val result = rect2PolarTrial(x, y)
 
-            val magErr = abs(result._1 / 1.66 - mag)
+            val magErr = abs(result._1 / 1.66 - mag.toDouble)
             val angleErr = abs(result._2 - angle)
 
             val magThresh = pow(2.0, -5)
