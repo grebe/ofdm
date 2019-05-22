@@ -2,14 +2,14 @@
 
 // Provide a managed dependency on X if -DXVersion="" is supplied on the command line.
 val defaultVersions = Map(
-  "dsptools" -> "1.2-102318-SNAPSHOT",
-  "rocket-dsptools" -> "1.2-102318-SNAPSHOT"
+  "dsptools" -> "1.2-SNAPSHOT",
+  "rocket-dsptools" -> "1.2-SNAPSHOT"
 )
 
 val commonSettings = Seq(
   organization := "edu.berkeley.cs",
   version      := "0.1",
-  scalaVersion := "2.12.7",
+  scalaVersion := "2.12.8",
   resolvers ++= Seq(
     Resolver.sonatypeRepo("snapshots"),
     Resolver.sonatypeRepo("release")

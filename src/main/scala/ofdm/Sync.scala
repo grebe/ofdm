@@ -42,7 +42,9 @@ class Sync[T <: Data : Real](params: SyncParams[T]) extends Module {
   autocorr.io.in.valid   := io.in.valid
   autocorr.io.in.bits    := io.in.bits.stream
 
-  val peakDetected = (autocorr.io.out.bits.abssq() > io.threshold * autocorr.io.energy.bits.pow(2)) && autocorr.io.out.valid && autocorr.io.energy.valid
+  val peakDetected =
+    (autocorr.io.out.bits.abssq() > io.threshold * autocorr.io.energy.bits.pow(2)) &&
+    autocorr.io.out.valid && autocorr.io.energy.valid
 
   peakDetect.io.in.valid := peakDetected
   peakDetect.io.in.bits  := ShiftRegister(io.in.bits.time, autocorr.totalDelay, en = io.in.valid)

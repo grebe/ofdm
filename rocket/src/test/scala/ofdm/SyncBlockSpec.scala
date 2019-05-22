@@ -1,6 +1,6 @@
 package ofdm
 
-import amba.axi4.AXI4MasterModel
+import freechips.rocketchip.amba.axi4.AXI4MasterModel
 import breeze.math.Complex
 import chisel3._
 import chisel3.experimental._
