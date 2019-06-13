@@ -20,23 +20,27 @@ case class RXParams[T <: Data]
 }
 
 class TimeDomainRX[T <: Data : Real: BinaryRepresentation](params: RXParams[T]) extends MultiIOModule {
+  // Streaming IOs
   val in = IO(Flipped(Decoupled(params.protoIn)))
   val out = IO(Decoupled(StreamAndTime(params.toSyncParams())))
   val tlast = IO(Output(Bool()))
 
+  // Subblock configuration IO
   val autocorrFF = IO(Input(params.protoAngle)) // TODO better proto
-
   val threshold: T = IO(Input(params.protoIn.real))
-
   val autocorrConfig   = IO(AutocorrConfigIO(params.autocorrParams))
   val peakDetectConfig = IO(SimplePeakDetectConfigIO(maxNumPeaks = params.maxNumPeaks))
-
-  val en = IO(Input(Bool()))
-
   val mutatorCommandIn = Flipped(Decoupled(new MutatorCommandDescriptor(params.queueDepth)))
-  val streamCount = IO(Output(UInt()))
 
-  val globalCycleCounter = GlobalCycleCounter(64, "rx", enable = en && in.fire())
+  // Status stuff
+  val streamCount = IO(Output(UInt()))
+  val currentCycle = IO(Output(UInt()))
+  val freqOut = IO(Output(chiselTypeOf(params.protoAngle)))
+  val packetDetects = IO(Flipped(Decoupled(UInt())))
+  val packetDetectsCount = IO(Output(UInt(params.timeStampWidth.W)))
+
+  val globalCycleEn = IO(Input(Bool()))
+  val globalCycleCounter = GlobalCycleCounter(64, "rx", enable = globalCycleEn && in.fire())
 
   // detect packets with simple autocorrelation-based scheme
   val autocorr   = Module(new AutocorrSimple(params.autocorrParams))
@@ -55,20 +59,28 @@ class TimeDomainRX[T <: Data : Real: BinaryRepresentation](params: RXParams[T]) 
   peakDetect.io.in.valid := peakDetected
   peakDetect.io.in.bits  := globalCycleCounter() + autocorr.totalDelay.U
 
-  val accumAutocorr = RegInit(t = params.protoOut, init = Ring[DspComplex[T]].zero)
+  val accumAutocorr: DspComplex[T] = RegInit(t = params.protoOut, init = Ring[DspComplex[T]].zero)
 
-  when (autocorr.io.out.fire()) {
-    accumAutocorr := DspComplex(autocorrFF, autocorrFF) * accumAutocorr + autocorr.io.out.bits
+  val packetDetectQueue = Module(new Queue(UInt(params.timeStampWidth.W), 16))
+  when (peakDetect.io.out.fire()) {
+    accumAutocorr := DspComplex(autocorrFF, autocorrFF) * accumAutocorr + autocorr.io.out.bits // peakDetect.io.out.bits
   }
+
+  packetDetectQueue.io.enq.bits := peakDetect.io.out.bits
+  packetDetectQueue.io.enq.valid := peakDetect.io.out.valid
+  assert(!peakDetect.io.out.valid || packetDetectQueue.io.enq.ready)
+  packetDetects <> packetDetectQueue.io.deq
+  packetDetectsCount := packetDetectQueue.io.count
 
   // estimate CFO using CORDIC
   val cordic = IterativeCORDIC.circularVectoring(accumAutocorr.real.cloneType, params.protoAngle)
   cordic.io.in.bits.x := accumAutocorr.real
   cordic.io.in.bits.y := accumAutocorr.imag
-  cordic.io.in.valid := RegNext(autocorr.io.out.fire())
+  cordic.io.in.valid := RegNext(peakDetect.io.out.fire(), init = false.B)
   cordic.io.out.ready := true.B
 
   val freq = RegInit(t = params.protoAngle, init = Ring[T].zero)
+  freqOut := freq
 
   when (cordic.io.out.fire()) {
     freq := cordic.io.out.bits.z

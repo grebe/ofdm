@@ -17,8 +17,7 @@ class SyncSpec extends FlatSpec with Matchers {
     var output = Seq[(Complex, Int)]()
 
     chisel3.iotesters.Driver.execute(Array("-tbn", "verilator"), () => new Sync(params)) {
-      c =>
-        new DspTester(c) {
+      c => new DspTester(c) {
           updatableSubVerbose.withValue(true) {
             updatableDspVerbose.withValue(true) {
               step(5)
