@@ -1,10 +1,11 @@
 package ofdm
 
 import chisel3._
+import chisel3.core.requireIsChiselType
 import chisel3.experimental.MultiIOModule
 import chisel3.util.{Decoupled, Queue, log2Ceil}
 
-class MutatorCommandDescriptor(numPass: Int) extends Bundle {
+class MutatorCommandDescriptor(val numPass: Int) extends Bundle {
   val `type` = UInt(1.W)
   val last = UInt(1.W)
   val length = UInt(log2Ceil(numPass + 1).W)
@@ -22,13 +23,15 @@ object MutatorCommandDescriptor {
   * according to run-time configurable rules.
   */
 class StreamMutator[T <: Data](proto: T, numCount: Int, queueDepth: Int) extends MultiIOModule {
-  val in = IO(Flipped(Decoupled(chiselTypeOf(proto))))
-  val out = IO(Decoupled(chiselTypeOf(proto)))
+  requireIsChiselType(proto)
+
+  val in = IO(Flipped(Decoupled(proto)))
+  val out = IO(Decoupled(proto))
   val tlast = IO(Output(Bool()))
 
-  val commandIn = Flipped(Decoupled(new MutatorCommandDescriptor(numCount)))
+  val commandIn = IO(Flipped(Decoupled(new MutatorCommandDescriptor(numCount))))
 
-  val streamCount = IO(Output(UInt()))
+  val streamCount = IO(Output(UInt(log2Ceil(queueDepth).W)))
 
   val dropCounter = RegInit(0.U(log2Ceil(numCount + 1).W))
   val passCounter = RegInit(0.U(log2Ceil(numCount + 1).W))

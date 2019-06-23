@@ -10,37 +10,36 @@ import org.scalatest.{FlatSpec, Matchers}
 
 class SyncSpec extends FlatSpec with Matchers {
 
-  behavior of "Sync Block"
+  behavior of "Time-domain RX"
 
 
-  def runTest[T <: Data : Real : BinaryRepresentation](signal: Seq[Complex], params: SyncParams[T], thresh: Double = 0.5): Seq[(Complex, Int)] = {
+  def runTest[T <: Data : Real : BinaryRepresentation](signal: Seq[Complex], params: RXParams[T], thresh: Double = 0.5): Seq[(Complex, Int)] = {
     var output = Seq[(Complex, Int)]()
 
-    chisel3.iotesters.Driver.execute(Array("-tbn", "verilator"), () => new Sync(params)) {
+    chisel3.iotesters.Driver.execute(Array("-tbn", "verilator"), () => new TimeDomainRX(params)) {
       c => new DspTester(c) {
           updatableSubVerbose.withValue(true) {
             updatableDspVerbose.withValue(true) {
               step(5)
-              poke(c.io.autocorrConfig.depthApart, 64)
-              poke(c.io.autocorrConfig.depthOverlap, 64)
-              poke(c.io.peakDetectConfig.peakDistance, 160)
+              poke(c.autocorrConfig.depthApart, 64)
+              poke(c.autocorrConfig.depthOverlap, 64)
+              poke(c.peakDetectConfig.peakDistance, 160)
             }
           }
 
-          poke(c.io.in.valid, 1)
-          for ((in, time) <- signal.zipWithIndex) {
-            poke(c.io.in.bits.stream, in)
-            poke(c.io.in.bits.time, time)
+          poke(c.in.valid, 1)
+          for (in <- signal) {
+            poke(c.in.bits, in)
             step(1)
-            if (peek(c.io.out.valid)) {
-              output = output :+ (peek(c.io.out.bits.stream), peek(c.io.out.bits.time))
+            if (peek(c.out.valid)) {
+              output = output :+ (peek(c.out.bits.stream), peek(c.out.bits.time))
             }
           }
-          poke(c.io.in.bits.stream, Complex(0.0, 0.0))
+          poke(c.in.bits, Complex(0.0, 0.0))
           for (_ <- 0 until 100) {
             step(1)
-            if (peek(c.io.out.valid)) {
-              output = output :+ (peek(c.io.out.bits.stream), peek(c.io.out.bits.time))
+            if (peek(c.out.valid)) {
+              output = output :+ (peek(c.out.bits.stream), peek(c.out.bits.time))
             }
           }
         }
@@ -50,15 +49,26 @@ class SyncSpec extends FlatSpec with Matchers {
 
   val protoIn  = FixedPoint(16.W, 14.BP)
   val protoOut = FixedPoint(16.W, 14.BP)
-  val stfParams = SyncParams(
+  val protoAngle = FixedPoint(16.W, 13.BP)
+  val protoFreq = FixedPoint(16.W, 8.BP)
+
+  val stfParams = RXParams(
     protoIn = DspComplex(protoIn),
     protoOut = DspComplex(protoOut),
+    protoAngle = protoAngle,
     maxNumPeaks = 256,
     timeStampWidth = 64,
     autocorrParams = AutocorrParams(
       protoIn = DspComplex(protoIn),
       maxApart = 256,
       maxOverlap = 256
+    ),
+    ncoParams = NCOParams(
+      phaseWidth = 16,
+      tableSize = 64,
+      phaseConv = u => u.asTypeOf(protoAngle),
+      protoFreq = protoFreq,
+      protoOut = protoOut,
     )
   )
 

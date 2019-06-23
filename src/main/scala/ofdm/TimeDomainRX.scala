@@ -1,6 +1,7 @@
 package ofdm
 
 import chisel3._
+import chisel3.core.requireIsChiselType
 import chisel3.experimental.MultiIOModule
 import chisel3.util._
 import dsptools.numbers._
@@ -16,6 +17,9 @@ case class RXParams[T <: Data]
   ncoParams: NCOParams[T],
   queueDepth: Int = (1 << 13) - 1
 ) {
+  requireIsChiselType(protoIn)
+  requireIsChiselType(protoOut)
+  requireIsChiselType(protoAngle)
   def toSyncParams() = SyncParams(protoIn, protoOut, maxNumPeaks, timeStampWidth, autocorrParams)
 }
 
@@ -30,17 +34,19 @@ class TimeDomainRX[T <: Data : Real: BinaryRepresentation](params: RXParams[T]) 
   val threshold: T = IO(Input(params.protoIn.real))
   val autocorrConfig   = IO(AutocorrConfigIO(params.autocorrParams))
   val peakDetectConfig = IO(SimplePeakDetectConfigIO(maxNumPeaks = params.maxNumPeaks))
-  val mutatorCommandIn = Flipped(Decoupled(new MutatorCommandDescriptor(params.queueDepth)))
+  val mutatorCommandIn = IO(Flipped(Decoupled(new MutatorCommandDescriptor(params.queueDepth))))
 
   // Status stuff
-  val streamCount = IO(Output(UInt()))
-  val currentCycle = IO(Output(UInt()))
-  val freqOut = IO(Output(chiselTypeOf(params.protoAngle)))
-  val packetDetects = IO(Flipped(Decoupled(UInt())))
+  val streamCount = IO(Output(UInt(log2Ceil(params.queueDepth).W)))
+  val currentCycle = IO(Output(UInt(64.W)))
+  val freqOut = IO(Output(params.protoAngle))
+  val packetDetects = IO(Decoupled(UInt(params.timeStampWidth.W)))
   val packetDetectsCount = IO(Output(UInt(params.timeStampWidth.W)))
 
   val globalCycleEn = IO(Input(Bool()))
   val globalCycleCounter = GlobalCycleCounter(64, "rx", enable = globalCycleEn && in.fire())
+
+  currentCycle := globalCycleCounter.counter
 
   // detect packets with simple autocorrelation-based scheme
   val autocorr   = Module(new AutocorrSimple(params.autocorrParams))
@@ -59,11 +65,18 @@ class TimeDomainRX[T <: Data : Real: BinaryRepresentation](params: RXParams[T]) 
   peakDetect.io.in.valid := peakDetected
   peakDetect.io.in.bits  := globalCycleCounter() + autocorr.totalDelay.U
 
-  val accumAutocorr: DspComplex[T] = RegInit(t = params.protoOut, init = Ring[DspComplex[T]].zero)
+  val zero = Wire(DspComplex(Ring[T].zero, Ring[T].zero))
+  zero.real := Ring[T].zero
+  zero.imag := Ring[T].zero
+
+  val accumAutocorr: DspComplex[T] = RegInit(t = params.protoOut, init = zero)
 
   val packetDetectQueue = Module(new Queue(UInt(params.timeStampWidth.W), 16))
   when (peakDetect.io.out.fire()) {
-    accumAutocorr := DspComplex(autocorrFF, autocorrFF) * accumAutocorr + autocorr.io.out.bits // peakDetect.io.out.bits
+    val mult = Wire(DspComplex(autocorrFF, autocorrFF))
+    mult.real := autocorrFF
+    mult.imag := Ring[T].zero
+    accumAutocorr := mult * accumAutocorr + autocorr.io.out.bits // peakDetect.io.out.bits
   }
 
   packetDetectQueue.io.enq.bits := peakDetect.io.out.bits
@@ -76,6 +89,7 @@ class TimeDomainRX[T <: Data : Real: BinaryRepresentation](params: RXParams[T]) 
   val cordic = IterativeCORDIC.circularVectoring(accumAutocorr.real.cloneType, params.protoAngle)
   cordic.io.in.bits.x := accumAutocorr.real
   cordic.io.in.bits.y := accumAutocorr.imag
+  cordic.io.in.bits.z := Ring[T].zero
   cordic.io.in.valid := RegNext(peakDetect.io.out.fire(), init = false.B)
   cordic.io.out.ready := true.B
 
@@ -108,5 +122,8 @@ class TimeDomainRX[T <: Data : Real: BinaryRepresentation](params: RXParams[T]) 
   mutator.in.valid := inputQueue.io.deq.valid
   inputQueue.io.deq.ready := mutator.in.ready
 
-  out <> mutator.out
+  out.valid := mutator.out.valid
+  mutator.out.ready := out.ready
+  out.bits.stream := mutator.out.bits
+  out.bits.time := 0.U
 }

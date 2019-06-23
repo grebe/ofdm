@@ -8,7 +8,7 @@ val defaultVersions = Map(
 
 val commonSettings = Seq(
   organization := "edu.berkeley.cs",
-  version      := "0.1",
+  version      := "0.1-SNAPSHOT",
   scalaVersion := "2.12.8",
   resolvers ++= Seq(
     Resolver.sonatypeRepo("snapshots"),

@@ -8,12 +8,12 @@ case class GlobalCycleCounter(val width: Int, val name: String, enable: Bool = t
 
   val counter = RegInit(0.U(width.W))
   when (enable) {
-    counter := counter + 1.U
+    counter := counter +& 1.U
   }
   BoringUtils.addSource(counter, s"GlobalCycleCounter_$name")
 
   def apply(): UInt = {
-    val counter = Wire(UInt())
+    val counter = Wire(UInt(width.W))
     counter := DontCare
     BoringUtils.addSink(counter, s"GlobalCycleCounter_$name")
     counter
