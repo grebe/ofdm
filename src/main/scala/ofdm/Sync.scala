@@ -34,7 +34,7 @@ class Sync[T <: Data : Real](params: SyncParams[T]) extends Module {
   val io: SyncIO[T] = IO(SyncIO(params))
 
   val autocorr   = Module(new AutocorrSimple(params.autocorrParams))
-  val peakDetect = Module(new SimplePeakDetect(params.timeStampWidth, params.maxNumPeaks))
+  val peakDetect = Module(new SimplePeakDetect(params.protoOut, params.maxNumPeaks))
 
   autocorr.io.config <> io.autocorrConfig
   peakDetect.io.config <> io.peakDetectConfig

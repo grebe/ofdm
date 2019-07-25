@@ -16,33 +16,60 @@ class SyncSpec extends FlatSpec with Matchers {
   def runTest[T <: Data : Real : BinaryRepresentation](signal: Seq[Complex], params: RXParams[T], thresh: Double = 0.5): Seq[(Complex, Int)] = {
     var output = Seq[(Complex, Int)]()
 
-    chisel3.iotesters.Driver.execute(Array("-tbn", "verilator"), () => new TimeDomainRX(params)) {
+    dsptools.Driver.execute(() => new TimeDomainRX(params), Array("-tbn", "verilator", "-dtinv")) {
       c => new DspTester(c) {
-          updatableSubVerbose.withValue(true) {
-            updatableDspVerbose.withValue(true) {
-              step(5)
-              poke(c.autocorrConfig.depthApart, 64)
-              poke(c.autocorrConfig.depthOverlap, 64)
-              poke(c.peakDetectConfig.peakDistance, 160)
-            }
-          }
+        updatableSubVerbose.withValue(true) {
+          updatableDspVerbose.withValue(true) {
+            poke(c.in.valid, 0)
+            poke(c.out.ready, 0)
 
-          poke(c.in.valid, 1)
-          for (in <- signal) {
-            poke(c.in.bits, in)
+            poke(c.tlast, 0)
+            poke(c.autocorrConfig.depthApart, 64)
+            poke(c.autocorrConfig.depthOverlap, 64)
+            poke(c.peakDetectConfig.numPeaks, 70)
+            poke(c.peakDetectConfig.peakDistance, 160)
+            poke(c.mutatorCommandIn.bits.length, 200)
+            poke(c.peakThreshold, 0.5)
+            poke(c.peakOffset, 0.0005)
+
+            poke(c.mutatorCommandIn.bits.`type`, 2)
+            poke(c.mutatorCommandIn.bits.length, 100)
+            poke(c.mutatorCommandIn.bits.last, 1)
+            poke(c.mutatorCommandIn.bits.id, 0)
+            poke(c.mutatorCommandIn.valid, 1)
+
+            poke(c.packetDetects.ready, 1)
+
             step(1)
-            if (peek(c.out.valid)) {
-              output = output :+ (peek(c.out.bits.stream), peek(c.out.bits.time))
-            }
-          }
-          poke(c.in.bits, Complex(0.0, 0.0))
-          for (_ <- 0 until 100) {
+            poke(c.mutatorCommandIn.bits.`type`, 1)
             step(1)
-            if (peek(c.out.valid)) {
-              output = output :+ (peek(c.out.bits.stream), peek(c.out.bits.time))
-            }
+            poke(c.mutatorCommandIn.valid, 0)
+            // poke(c.peakDetectConfig.numPeaks.valid, 0)
+
           }
         }
+        poke(c.globalCycleEn, 1)
+        poke(c.in.valid, 1)
+        poke(c.out.ready, 1)
+
+        for ((in, idx) <- signal.zipWithIndex) {
+          poke(c.in.bits, in)
+          if (idx == signal.length - 1) {
+            poke(c.tlast, 1)
+          }
+          step(1)
+          if (peek(c.out.valid)) {
+            output = output :+ (peek(c.out.bits.stream), peek(c.out.bits.time))
+          }
+        }
+        poke(c.in.bits, Complex(0.0, 0.0))
+        for (_ <- 0 until 100) {
+          step(1)
+          if (peek(c.out.valid)) {
+            output = output :+ (peek(c.out.bits.stream), peek(c.out.bits.time))
+          }
+        }
+      }
     }
     output
   }
@@ -72,8 +99,8 @@ class SyncSpec extends FlatSpec with Matchers {
     )
   )
 
-  it should "correct no CFO with STF" ignore {
-    val testSignal = IEEE80211.stf ++ Seq.fill(500) { Complex(0.125, 0) }
+  it should "correct no CFO with STF" in {
+    val testSignal = IEEE80211.stf ++ IEEE80211.ltf ++ IEEE80211.sigFreq(5, 6 * 4, 0) ++ Seq.fill(500) { Complex(0.0, 0) }
     val cfoSignal = IEEE80211.addCFO(testSignal, 0.0e3)
 
     val output = runTest(cfoSignal, stfParams)
@@ -81,12 +108,12 @@ class SyncSpec extends FlatSpec with Matchers {
 
     println(s"Input was:")
     println(cfoSignal.toString)
-    println(s"Output was:")
-    println(output.toString)
+    println(s"Output (length ${output.length}) was: $output")
+
 }
 
   it should "correct CFO of 50 kHz with STF" in {
-    val testSignal = IEEE80211.stf ++ Seq.fill(500) { Complex(0.125, 0) }
+    val testSignal = IEEE80211.stf ++ Seq.fill(500) { Complex(0.0, 0) }
     val cfoSignal = IEEE80211.addCFO(testSignal, -50.0e3)
 
     val output = runTest(cfoSignal, stfParams)
@@ -94,8 +121,7 @@ class SyncSpec extends FlatSpec with Matchers {
 
     println(s"Input was:")
     println(cfoSignal.toString)
-    println(s"Output was:")
-    println(output.toString)
+    println(s"Output (length ${output.length}) was: $output")
  }
 
   it should "correct CFO for Rimas's test signal" ignore {
@@ -139,7 +165,7 @@ class SyncSpec extends FlatSpec with Matchers {
 
   }
 
-  it should "correct CFO for Rimas's test signal (two board)" in {
+  it should "correct CFO for Rimas's test signal (two board)" ignore {
     val testSignal = ADITrace.binaryResource("/waveforms/wifi-bpsk-2boards.dat.xz").take(100000)
     val cfoSignal = testSignal //IEEE80211.addCFO(testSignal, -50.0e3)
 

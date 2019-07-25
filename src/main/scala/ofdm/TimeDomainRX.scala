@@ -20,10 +20,16 @@ case class RXParams[T <: Data]
   requireIsChiselType(protoIn)
   requireIsChiselType(protoOut)
   requireIsChiselType(protoAngle)
+
+  // this is mostly to require that widths are defined!
+  require(protoIn.getWidth > 0)
+  require(protoOut.getWidth > 0)
+  require(protoAngle.getWidth > 0)
+
   def toSyncParams() = SyncParams(protoIn, protoOut, maxNumPeaks, timeStampWidth, autocorrParams)
 }
 
-class TimeDomainRX[T <: Data : Real: BinaryRepresentation](params: RXParams[T]) extends MultiIOModule {
+class TimeDomainRX[T <: Data : Real: BinaryRepresentation](params: RXParams[T], counterOpt: Option[GlobalCycleCounter] = None) extends MultiIOModule {
   // Streaming IOs
   val in = IO(Flipped(Decoupled(params.protoIn)))
   val out = IO(Decoupled(StreamAndTime(params.toSyncParams())))
@@ -31,13 +37,15 @@ class TimeDomainRX[T <: Data : Real: BinaryRepresentation](params: RXParams[T]) 
 
   // Subblock configuration IO
   val autocorrFF = IO(Input(params.protoAngle)) // TODO better proto
-  val threshold: T = IO(Input(params.protoIn.real))
+  val peakThreshold: T = IO(Input(params.protoAngle))
+  val peakOffset: T    = IO(Input(params.protoAngle))
+  val freqMultiplier: T = IO(Input(params.protoAngle))
   val autocorrConfig   = IO(AutocorrConfigIO(params.autocorrParams))
   val peakDetectConfig = IO(SimplePeakDetectConfigIO(maxNumPeaks = params.maxNumPeaks))
   val mutatorCommandIn = IO(Flipped(Decoupled(new MutatorCommandDescriptor(params.queueDepth))))
 
   // Status stuff
-  val streamCount = IO(Output(UInt(log2Ceil(params.queueDepth).W)))
+  // val streamCount = IO(Output(UInt(log2Ceil(params.queueDepth).W)))
   val currentCycle = IO(Output(UInt(64.W)))
   val freqOut = IO(Output(params.protoAngle))
   val packetDetects = IO(Decoupled(UInt(params.timeStampWidth.W)))
@@ -50,7 +58,10 @@ class TimeDomainRX[T <: Data : Real: BinaryRepresentation](params: RXParams[T]) 
 
   // detect packets with simple autocorrelation-based scheme
   val autocorr   = Module(new AutocorrSimple(params.autocorrParams))
-  val peakDetect = Module(new SimplePeakDetect(params.timeStampWidth, params.maxNumPeaks))
+  val peakDetect = Module(new SimplePeakDetect(params.protoOut, params.maxNumPeaks))
+  val mutator = Module(new StreamMutator(chiselTypeOf(in.bits), params.queueDepth, params.queueDepth))
+
+  val peakDetectId = RegInit(0.U(8.W))
 
   autocorr.io.config <> autocorrConfig
   peakDetect.io.config <> peakDetectConfig
@@ -59,11 +70,13 @@ class TimeDomainRX[T <: Data : Real: BinaryRepresentation](params: RXParams[T]) 
   autocorr.io.in.bits    := in.bits
 
   val peakDetected =
-    (autocorr.io.out.bits.abssq() > threshold * autocorr.io.energy.bits.pow(2)) &&
+    (autocorr.io.out.bits.abssq() > peakThreshold * autocorr.io.energy.bits + peakOffset) &&
       autocorr.io.out.valid && autocorr.io.energy.valid
 
-  peakDetect.io.in.valid := peakDetected
-  peakDetect.io.in.bits  := globalCycleCounter() + autocorr.totalDelay.U
+  peakDetect.io.in.valid := autocorr.io.out.valid && autocorr.io.energy.valid
+  peakDetect.io.in.bits.peak := peakDetected
+  peakDetect.io.in.bits.data := autocorr.io.out.bits
+  peakDetect.io.in.bits.time := globalCycleCounter()
 
   val zero = Wire(DspComplex(Ring[T].zero, Ring[T].zero))
   zero.real := Ring[T].zero
@@ -76,11 +89,16 @@ class TimeDomainRX[T <: Data : Real: BinaryRepresentation](params: RXParams[T]) 
     val mult = Wire(DspComplex(autocorrFF, autocorrFF))
     mult.real := autocorrFF
     mult.imag := Ring[T].zero
-    accumAutocorr := mult * accumAutocorr + autocorr.io.out.bits // peakDetect.io.out.bits
+    accumAutocorr := Ring[DspComplex[T]].plus(mult * accumAutocorr, peakDetect.io.out.bits.data)
+      // autocorr.io.out.bits
   }
 
-  packetDetectQueue.io.enq.bits := peakDetect.io.out.bits
-  packetDetectQueue.io.enq.valid := peakDetect.io.out.valid
+  packetDetectQueue.io.enq.bits := peakDetect.io.out.bits.time
+  packetDetectQueue.io.enq.valid := peakDetect.io.out.valid && mutator.currentId.valid && mutator.currentId.bits === peakDetectId
+
+  when (peakDetect.io.out.fire()) {
+    peakDetectId := peakDetectId +& 1.U
+  }
   assert(!peakDetect.io.out.valid || packetDetectQueue.io.enq.ready)
   packetDetects <> packetDetectQueue.io.deq
   packetDetectsCount := packetDetectQueue.io.count
@@ -104,7 +122,7 @@ class TimeDomainRX[T <: Data : Real: BinaryRepresentation](params: RXParams[T]) 
   val nco = Module(new NCO(params.ncoParams))
 
   nco.io.en := in.fire()
-  nco.io.freq := freq
+  nco.io.freq := freq * freqMultiplier
 
   val inputQueue = Module(new Queue(chiselTypeOf(in.bits), 1, pipe = true, flow = true))
 
@@ -113,9 +131,10 @@ class TimeDomainRX[T <: Data : Real: BinaryRepresentation](params: RXParams[T]) 
   inputQueue.io.enq.bits := in.bits
   inputQueue.io.deq.ready := nco.io.out.valid
 
-  val mutator = Module(new StreamMutator(chiselTypeOf(in.bits), params.queueDepth, params.queueDepth))
-  mutator.commandIn <> mutatorCommandIn
-  streamCount := mutator.streamCount
+  mutator.commandIn.bits <> mutatorCommandIn.bits
+  mutator.commandIn.valid := mutatorCommandIn.valid // && peakDetect.io.out.valid
+  mutatorCommandIn.ready := mutator.commandIn.ready // && peakDetect.io.out.valid
+  mutator.packetDetect := peakDetect.io.out.fire()
   tlast := mutator.tlast
 
   mutator.in.bits := inputQueue.io.deq.bits * nco.io.out.bits

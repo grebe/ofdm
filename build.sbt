@@ -81,4 +81,3 @@ def javacOptionsVersion(scalaVersion: String): Seq[String] = {
     }
   }
 }
-
