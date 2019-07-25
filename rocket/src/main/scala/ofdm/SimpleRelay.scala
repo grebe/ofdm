@@ -38,4 +38,6 @@ class AXI4SimpleRelay[T <: Data : Real : BinaryRepresentation](rxParams: RXParam
     scheduler.mem.get := xbar
   }
 
+  lazy val module = new LazyModuleImp(this)
+
 }

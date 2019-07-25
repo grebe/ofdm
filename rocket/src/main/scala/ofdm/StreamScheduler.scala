@@ -5,7 +5,8 @@ import chisel3.util.{DecoupledIO, Queue, ValidIO, log2Ceil}
 import dspblocks.{AXI4HasCSR, DspBlock, HasCSR, TLHasCSR}
 import freechips.rocketchip.amba.axi4.{AXI4Bundle, AXI4EdgeParameters, AXI4MasterPortParameters, AXI4RegisterNode, AXI4SlavePortParameters}
 import freechips.rocketchip.amba.axi4stream.{AXI4StreamMasterPortParameters, AXI4StreamNexusNode}
-import freechips.rocketchip.diplomacy.{AddressSet, BundleBridgeSink, LazyModuleImp, SimpleDevice}
+import freechips.rocketchip.config.Parameters
+import freechips.rocketchip.diplomacy.{AddressSet, BundleBridgeSink, LazyModule, LazyModuleImp, SimpleDevice}
 import freechips.rocketchip.regmapper.{RegField, RegFieldDesc, RegReadFn, RegWriteFn}
 import freechips.rocketchip.tilelink.{TLBundle, TLClientPortParameters, TLEdgeIn, TLEdgeOut, TLManagerPortParameters, TLRegisterNode}
 
@@ -24,10 +25,11 @@ class SchedulingDescriptor(val w: Int, val numQueues: Int) extends Bundle {
   val sel = UInt(log2Ceil(numQueues).W)
 }
 
-abstract class StreamScheduler[D, U, EO, EI, B <: Data](beatBytes: Int, counterOpt: Option[GlobalCycleCounter] = None) extends DspBlock[D, U, EO, EI, B] with HasCSR {
+abstract class StreamScheduler[D, U, EO, EI, B <: Data](beatBytes: Int, counterOpt: Option[GlobalCycleCounter] = None)
+  extends LazyModule()(Parameters.empty) with DspBlock[D, U, EO, EI, B] with HasCSR {
 
   override val streamNode = AXI4StreamNexusNode(
-    masterFn = ms => ms.reduce({ case (l, r) =>
+    masterFn = ms => ms.reduce({ (l, r) =>
         AXI4StreamMasterPortParameters(l.masters ++ r.masters)
     }),
     slaveFn = ss => {
