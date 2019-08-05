@@ -2,7 +2,6 @@ package ofdm
 
 import chisel3._
 import dsptools.numbers._
-import dspblocks.AXI4DspBlock
 import freechips.rocketchip.amba.axi4.AXI4Xbar
 import freechips.rocketchip.amba.axi4stream.{HasAXI4StreamCrossing, StreamingAXI4DMAWithCSR}
 import freechips.rocketchip.config.Parameters
@@ -36,8 +35,8 @@ class AXI4SimpleRelay[T <: Data : Real : BinaryRepresentation](rxParams: RXParam
     dma.axiSlaveNode := xbar
     aligner.axiNode := xbar
     scheduler.mem.get := xbar
+    scheduler.hardCoded := rx.schedule
   }
 
   lazy val module = new LazyModuleImp(this)
-
 }

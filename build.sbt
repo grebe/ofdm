@@ -3,7 +3,8 @@
 // Provide a managed dependency on X if -DXVersion="" is supplied on the command line.
 val defaultVersions = Map(
   "dsptools" -> "1.2-SNAPSHOT",
-  "rocket-dsptools" -> "1.2-SNAPSHOT"
+  "rocket-dsptools" -> "1.2-SNAPSHOT",
+  "firesim" -> "1.0"
 )
 
 val commonSettings = Seq(
@@ -32,7 +33,6 @@ val commonSettings = Seq(
 )
 
 val ofdmSettings = Seq(
-  name := "ofdm",
   libraryDependencies ++= Seq("dsptools").map {
     dep: String => "edu.berkeley.cs" %% dep % sys.props.getOrElse(dep + "Version", defaultVersions(dep))
   },
@@ -46,8 +46,16 @@ val ofdmRocketSettings = Seq(
   }
 )
 
+val ofdmFiresimSettings = Seq(
+  name := "ofdm-firesim",
+  libraryDependencies ++= Seq("firesim").map {
+    dep: String => "berkeley" %% dep % sys.props.getOrElse(dep + "Version", defaultVersions(dep))
+  }
+)
+
 lazy val ofdm = (project in file(".")).
   settings(commonSettings: _*).
+  settings(name := "ofdm").
   settings(ofdmSettings: _*)
 
 lazy val ofdmRocket = (project in file("rocket")).
@@ -55,6 +63,12 @@ lazy val ofdmRocket = (project in file("rocket")).
   settings(ofdmRocketSettings: _*).
   dependsOn(ofdm).
   aggregate(ofdm)
+
+lazy val ofdmFiresim = (project in file("firesim")).
+  settings(commonSettings: _*).
+  settings(ofdmFiresimSettings: _*).
+  dependsOn(ofdmRocket).
+  aggregate(ofdmRocket)
 
 def scalacOptionsVersion(scalaVersion: String): Seq[String] = {
   Seq() ++ {
