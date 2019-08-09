@@ -1,23 +1,15 @@
 package ofdm
 
 import chisel3._
-import chisel3.experimental.RawModule
+import chisel3.experimental.{MultiIOModule, RawModule}
 import chisel3.util.{Cat, ShiftRegister, Valid, log2Ceil}
 
-class DivisionStageIO(n: Int, useIndexPort: Boolean) extends Bundle {
+class DivisionStageIO(val n: Int) extends Bundle {
   val pin = Input(UInt( (2*n).W ))
-  val qin = Input(UInt(n.W))
-
   val d = Input(UInt( (2*n).W ))
 
   val pout = Output(UInt( (2*n).W ))
-  val qout = Output(UInt(n.W))
-
-  val idx  = if (useIndexPort) {
-    Some(Input(UInt(log2Ceil(n).W)))
-  } else {
-    None
-  }
+  val qout = Output(UInt(1.W))
 }
 
 object SetBit {
@@ -50,40 +42,24 @@ trait HasDivisionIO extends RawModule {
   def io: DivisionStageIO
 }
 
-class NonRestoringStage(n: Int, fixedIdx: Option[Int] = None) extends RawModule with HasDivisionIO {
-  val useIndexPort = fixedIdx.isEmpty
-  val io = IO(new DivisionStageIO(n, useIndexPort))
+class NonRestoringStage(n: Int) extends RawModule with HasDivisionIO {
+  val io = IO(new DivisionStageIO(n))
 
   val pGtEqZero: Bool = io.pin(2*n-1) === 0.U
-  val pShift: UInt = (io.pin << 1).asTypeOf(UInt())
+  val pShift: UInt = io.pin << 1
 
-  fixedIdx match {
-    case Some(idx) =>
-      io.qout := SetBit(io.qin, idx, pGtEqZero)
-    case None =>
-      io.qout := SetBit(io.qin, io.idx.get, pGtEqZero)
-  }
-
-
-  when (pGtEqZero) {
-    io.pout := pShift - io.d
-  }   .otherwise {
-    io.pout := pShift + io.d
-  }
+  io.qout := pGtEqZero
+  io.pout := Mux(pGtEqZero, pShift -& io.d, pShift +& io.d)
 }
 
 class PipelinedDividerInputIO(val n: Int) extends Bundle {
   val num    = UInt(n.W)
   val denom  = UInt(n.W)
-
-  override def cloneType: PipelinedDividerInputIO.this.type = new PipelinedDividerInputIO(n).asInstanceOf[this.type]
 }
 
-class PipelinedDividerIO(n: Int) extends Bundle {
+class PipelinedDividerIO(val n: Int) extends Bundle {
   val in = Input(Valid(new PipelinedDividerInputIO(n)))
   val out = Output(Valid(UInt(n.W)))
-
-  override def cloneType: PipelinedDividerIO.this.type = new PipelinedDividerIO(n).asInstanceOf[this.type]
 }
 
 class RedundantToNonRedundant(n: Int) extends RawModule {
@@ -93,7 +69,7 @@ class RedundantToNonRedundant(n: Int) extends RawModule {
 
   val correction = Mux(pin(2 * n - 1), 1.U, 0.U)
 
-  qout := qin - (~qin).asTypeOf(UInt(n.W)) - correction
+  qout := qin - (~qin).asUInt - correction
 }
 
 class PipelinedDivider(val n: Int, val conversionDelay: Int = 1) extends Module {
@@ -101,23 +77,26 @@ class PipelinedDivider(val n: Int, val conversionDelay: Int = 1) extends Module 
 
   val io = IO(new PipelinedDividerIO(n))
 
+  val stages = Seq.fill(n + 1) { Module(new NonRestoringStage(n + 1)) }
+  val d: UInt = io.in.bits.denom << (n + 1)
 
-  val stages = Seq.tabulate(n + 1) { i: Int => Module(new NonRestoringStage(n + 1, fixedIdx = Some(n-i))) }
-  val d: UInt = (io.in.bits.denom << (n + 1)).asTypeOf(UInt()) //UInt((2*n).W))
+  // we want qin to be zero-width so it doesn't add an extra MSB
+  val qin0 = Wire(UInt(0.W))
+  qin0 := 0.U
 
-  val (p, q, _) = stages.foldLeft( (io.in.bits.num, 0.U, d) ) { case ( (pin, qin, din), stage) =>
+  val (p, q, _) = stages.foldLeft( (/*numAbs*/ io.in.bits.num, qin0, d) ) { case ( (pin, qin, din), stage) =>
     stage.io.d := din
     stage.io.pin := pin
-    stage.io.qin := qin
 
-    (RegNext(stage.io.pout), RegNext(stage.io.qout), RegNext(d))
-    //(stage.io.pout, stage.io.qout)
+    (RegNext(stage.io.pout), RegNext(Cat(qin, stage.io.qout)), RegNext(din))
   }
 
   val nonRedundantConverter = Module(new RedundantToNonRedundant(n + 1))
   nonRedundantConverter.qin := q
   nonRedundantConverter.pin := p
 
-  io.out.bits := ShiftRegister(nonRedundantConverter.qout, conversionDelay)
-  io.out.valid := ShiftRegister(io.in.valid, n + 1 + conversionDelay, resetData = false.B, en = true.B)
+  val latency = stages.length + conversionDelay
+
+  io.out.bits := ShiftRegister(/*signedQout*/ nonRedundantConverter.qout, conversionDelay)
+  io.out.valid := ShiftRegister(io.in.valid, latency, resetData = false.B, en = true.B)
 }
