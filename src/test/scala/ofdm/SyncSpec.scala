@@ -80,8 +80,8 @@ class SyncSpec extends FlatSpec with Matchers {
   val protoFreq = FixedPoint(16.W, 8.BP)
 
   val stfParams = RXParams(
-    protoIn = DspComplex(protoIn),
-    protoOut = DspComplex(protoOut),
+    protoADC = DspComplex(protoIn),
+    protoFFTIn = DspComplex(protoOut),
     protoAngle = protoAngle,
     maxNumPeaks = 256,
     timeStampWidth = 64,
@@ -96,7 +96,9 @@ class SyncSpec extends FlatSpec with Matchers {
       phaseConv = u => u.asTypeOf(protoAngle),
       protoFreq = protoFreq,
       protoOut = protoOut,
-    )
+    ),
+    protoTwiddle = DspComplex(protoIn),
+    nFFT = 64
   )
 
   it should "correct no CFO with STF" in {

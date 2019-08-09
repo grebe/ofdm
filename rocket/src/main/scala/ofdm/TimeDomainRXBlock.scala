@@ -30,8 +30,8 @@ abstract class TimeDomainRXBlock[T <: Data : Real: BinaryRepresentation, D, U, E
     require(inP.bundle.hasData)
     require(!inP.bundle.hasKeep)
     require(!inP.bundle.hasStrb)
-    require(inP.bundle.dataBits >= params.protoIn.getWidth)
-    require(inP.bundle.dataBits >= params.protoOut.getWidth)
+    require(inP.bundle.dataBits >= params.protoADC.getWidth)
+    require(inP.bundle.dataBits >= params.protoFFTIn.getWidth)
 
     // make registers to save control stuff
     val angleWidth = params.protoAngle.getWidth
@@ -60,7 +60,7 @@ abstract class TimeDomainRXBlock[T <: Data : Real: BinaryRepresentation, D, U, E
 
     // connect input
     rx.in.valid := in.valid
-    rx.in.bits := in.bits.data.asTypeOf(params.protoIn)
+    rx.in.bits := in.bits.data.asTypeOf(params.protoADC)
     in.ready := rx.in.ready
 
     // connect output
