@@ -1,7 +1,7 @@
 package ofdm
 
 import chisel3._
-import chisel3.core.requireIsHardware
+import chisel3.internal.requireIsHardware
 
 object AdjustableShiftRegister {
   def apply[T <: Data](in: T, maxDepth: Int, depth: UInt, resetData: T, en: Bool = true.B): T = {
