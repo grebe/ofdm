@@ -1,6 +1,5 @@
 package ofdm
 
-import breeze.linalg.max
 import chisel3._
 import chisel3.experimental.{FixedPoint, MultiIOModule}
 import chisel3.util.{Decoupled, ShiftRegister}
@@ -39,14 +38,6 @@ class SinglePointChannelEstimator[T <: Data : Ring : ConvertableTo](params: RXPa
     case u: UInt => u
   }
   def convUInttoT(in: UInt): T = in.asTypeOf(params.protoChannelEst.real)
-  //   params.protoChannelEst.real match {
-  //   case f: FixedPoint =>
-  //     val proto = FixedPoint(f.getWidth.W, f.binaryPoint)
-  //     in.asTypeOf(proto).asInstanceOf[U]
-  //   case (_: DspReal, _) => DspReal(in.asSInt).asInstanceOf[U]
-  //   case (_: SInt, _) => in.asSInt.asInstanceOf[U]
-  //   case (_: UInt, _) => in.asInstanceOf[U]
-  // }
 
   val numDelay = ShiftRegister(num, magLatency + divider.latency - numLatency)
   val mult = DspComplex.wire(
