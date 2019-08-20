@@ -1,7 +1,7 @@
 package ofdm
 
 import chisel3._
-import chisel3.core.requireIsChiselType
+import chisel3.internal.requireIsChiselType
 import chisel3.util.log2Ceil
 
 case class PacketizerIO[T <: Data](proto: T, size: Int) extends Bundle {

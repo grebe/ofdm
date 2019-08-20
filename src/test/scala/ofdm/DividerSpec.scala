@@ -1,18 +1,25 @@
 package ofdm
 
+import java.util
+
 import chisel3.iotesters.PeekPokeTester
 import org.scalatest.{FlatSpec, Matchers}
+
+import scala.collection.mutable.ArrayBuffer
 
 class PipelinedDividerTester(c: PipelinedDivider) extends PeekPokeTester(c) {
   def trialsBigInt(in: Seq[(BigInt, BigInt)]): Seq[BigInt] = {
     var out: Seq[BigInt] = Seq()
     poke(c.io.in.valid, 1)
+    val inFlight = ArrayBuffer[BigInt]()
     for ((n, d) <- in) {
       poke(c.io.in.bits.num, n)
       poke(c.io.in.bits.denom, d)
+      inFlight += n / d
       step(1)
       if (peek(c.io.out.valid) != BigInt(0)) {
         out :+= peek(c.io.out.bits)
+        expect(c.io.out.bits, inFlight.remove(0))
       }
     }
     poke(c.io.in.valid, 0)
@@ -21,6 +28,7 @@ class PipelinedDividerTester(c: PipelinedDivider) extends PeekPokeTester(c) {
       step(1)
       if (peek(c.io.out.valid) != BigInt(0)) {
         out :+= peek(c.io.out.bits)
+        expect(c.io.out.bits, inFlight.remove(0))
       }
     }
     require(out.length == in.length)
@@ -46,12 +54,10 @@ class DividerSpec extends FlatSpec with Matchers {
           j <- nums
         } yield (i, j)
 
-        //println(pairs.length.toString)
-
         val results = trials(pairs)
         //println(pairs.zip(results).toString)
         pairs.zip(results).foreach { case ((n, d), q) =>
-          // println(s"$n / $d = $q")
+          println(s"$n / $d = $q")
           q should be (n / d)
         }
       }

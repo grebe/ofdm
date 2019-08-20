@@ -1,37 +1,53 @@
 package ofdm
 
 import chisel3._
-import chisel3.core.requireIsChiselType
-import chisel3.experimental.MultiIOModule
+import chisel3.internal.requireIsChiselType
+import chisel3.experimental.{FixedPoint, MultiIOModule}
 import chisel3.util._
 import dsptools.numbers._
 
-case class RXParams[T <: Data]
+case class RXParams[T <: Data : Ring]
 (
-  protoIn: DspComplex[T],
-  protoOut: DspComplex[T],
+  protoADC: DspComplex[T],
   protoAngle: T,
+  protoFFTIn: DspComplex[T],
+  protoTwiddle: DspComplex[T],
+  nFFT: Int,
   maxNumPeaks: Int,
   timeStampWidth: Int,
   autocorrParams: AutocorrParams[DspComplex[T]],
   ncoParams: NCOParams[T],
   queueDepth: Int = (1 << 13) - 1
 ) {
-  requireIsChiselType(protoIn)
-  requireIsChiselType(protoOut)
-  requireIsChiselType(protoAngle)
+  Seq(protoADC, protoAngle, protoFFTIn, protoTwiddle).foreach { case proto =>
+    requireIsChiselType(proto)
+    // this is mostly to require that widths are defined!
+    require(proto.getWidth > 0)
+  }
+  val protoFFTOut: DspComplex[T] = protoFFTIn.real match {
+    case p: FixedPoint =>
+      val proto = FixedPoint((p.getWidth + (log2Ceil(nFFT) + 1)/ 2).W, p.binaryPoint + 4)
+      DspComplex(proto, proto).asInstanceOf[DspComplex[T]]
+    case r: DspReal => protoFFTIn
+  }
+  val protoChannelInv: T = protoFFTOut.real match {
+    case p: FixedPoint =>
+      FixedPoint((p.getWidth * 2).W, p.binaryPoint).asInstanceOf[T]
+    case r: DspReal => protoFFTOut.real
+  }
+  val protoChannelEst: DspComplex[T] = protoFFTOut.real match {
+    case p: FixedPoint =>
+      val proto = FixedPoint((p.getWidth + 4).W, (p.binaryPoint.get - 8).BP)
+      DspComplex(proto, proto).asInstanceOf[DspComplex[T]]
+    case r: DspReal => protoFFTOut
+  }
 
-  // this is mostly to require that widths are defined!
-  require(protoIn.getWidth > 0)
-  require(protoOut.getWidth > 0)
-  require(protoAngle.getWidth > 0)
-
-  def toSyncParams() = SyncParams(protoIn, protoOut, maxNumPeaks, timeStampWidth, autocorrParams)
+  def toSyncParams() = SyncParams(protoADC, protoFFTIn, maxNumPeaks, timeStampWidth, autocorrParams)
 }
 
 class TimeDomainRX[T <: Data : Real: BinaryRepresentation](params: RXParams[T], counterOpt: Option[GlobalCycleCounter] = None) extends MultiIOModule {
   // Streaming IOs
-  val in = IO(Flipped(Decoupled(params.protoIn)))
+  val in = IO(Flipped(Decoupled(params.protoADC)))
   val out = IO(Decoupled(StreamAndTime(params.toSyncParams())))
   val tlast = IO(Output(Bool()))
 
@@ -58,7 +74,7 @@ class TimeDomainRX[T <: Data : Real: BinaryRepresentation](params: RXParams[T], 
 
   // detect packets with simple autocorrelation-based scheme
   val autocorr   = Module(new AutocorrSimple(params.autocorrParams))
-  val peakDetect = Module(new SimplePeakDetect(params.protoOut, params.maxNumPeaks))
+  val peakDetect = Module(new SimplePeakDetect(params.protoFFTIn, params.maxNumPeaks))
   val mutator = Module(new StreamMutator(chiselTypeOf(in.bits), params.queueDepth, params.queueDepth))
 
   val peakDetectId = RegInit(0.U(8.W))
@@ -82,7 +98,7 @@ class TimeDomainRX[T <: Data : Real: BinaryRepresentation](params: RXParams[T], 
   zero.real := Ring[T].zero
   zero.imag := Ring[T].zero
 
-  val accumAutocorr: DspComplex[T] = RegInit(t = params.protoOut, init = zero)
+  val accumAutocorr: DspComplex[T] = RegInit(t = params.protoFFTIn, init = zero)
 
   val packetDetectQueue = Module(new Queue(UInt(params.timeStampWidth.W), 16))
   when (peakDetect.io.out.fire()) {
