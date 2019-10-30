@@ -12,6 +12,10 @@ class SyncSpec extends FlatSpec with Matchers {
 
   behavior of "Sync Block"
 
+  def seqToString(c: Seq[Complex]): String =
+    "[" +
+    c.map(i => s"${i.real}+${i.imag}j").mkString(", ") +
+    "]"
 
   def runTest[T <: Data : Real : BinaryRepresentation](signal: Seq[Complex], params: SyncParams[T], thresh: Double = 0.5): Seq[(Complex, Int)] = {
     var output = Seq[(Complex, Int)]()
@@ -63,20 +67,23 @@ class SyncSpec extends FlatSpec with Matchers {
     )
   )
 
-  it should "correct no CFO with STF" ignore {
+  it should "correct no CFO with STF" in {
     val testSignal = IEEE80211.stf ++ Seq.fill(500) { Complex(0.125, 0) }
     val cfoSignal = IEEE80211.addCFO(testSignal, 0.0e3)
 
     val output = runTest(cfoSignal, stfParams)
 
-
     println(s"Input was:")
-    println(cfoSignal.toString)
+    println(seqToString(cfoSignal))
     println(s"Output was:")
-    println(output.toString)
+    println(seqToString(output.map(_._1)))
+
+    val totalError = Seq.fill(500)(Complex(0.125, 0)).zip(output).map({ case (x, y) => x - y._1}).reduce(_ + _).abs
+
+    totalError should be < 0.001 * testSignal.length
 }
 
-  it should "correct CFO of 50 kHz with STF" in {
+  it should "correct CFO of 50 kHz with STF" ignore {
     val testSignal = IEEE80211.stf ++ Seq.fill(500) { Complex(0.125, 0) }
     val cfoSignal = IEEE80211.addCFO(testSignal, -50.0e3)
 
@@ -130,7 +137,7 @@ class SyncSpec extends FlatSpec with Matchers {
 
   }
 
-  it should "correct CFO for Rimas's test signal (two board)" in {
+  it should "correct CFO for Rimas's test signal (two board)" ignore {
     val testSignal = ADITrace.binaryResource("/waveforms/wifi-bpsk-2boards.dat.xz").take(100000)
     val cfoSignal = testSignal //IEEE80211.addCFO(testSignal, -50.0e3)
 

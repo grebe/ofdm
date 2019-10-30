@@ -2,8 +2,8 @@
 
 // Provide a managed dependency on X if -DXVersion="" is supplied on the command line.
 val defaultVersions = Map(
-  "dsptools" -> "1.2-102318-SNAPSHOT",
-  "rocket-dsptools" -> "1.2-102318-SNAPSHOT"
+  "dsptools" -> "1.2-100219-SNAPSHOT",
+  "rocket-dsptools" -> "1.2-100219-SNAPSHOT"
 )
 
 val commonSettings = Seq(

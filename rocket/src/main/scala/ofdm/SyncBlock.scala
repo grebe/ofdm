@@ -16,6 +16,7 @@ import spire.math.{Algebraic, Rational}
 
 import scala.language.implicitConversions
 
+
 object ScalarToComplexConvertableTo {
   implicit def scalarToComplex[T <: Data : Ring](c: ConvertableTo[T]): ConvertableTo[DspComplex[T]] =
     new ConvertableTo[DspComplex[T]] {
@@ -39,6 +40,7 @@ object ScalarToComplexConvertableTo {
         //DspComplex(c.fromType(b), zero)
     }
 }
+
 
 trait SyncBlock[T <: Data, D, U, EO, EI, B <: Data] extends DspBlock[D, U, EO, EI, B] {
   val streamNode = AXI4StreamSlaveNode(AXI4StreamSlaveParameters(numEndpoints = 1, alwaysReady = true))
@@ -91,6 +93,7 @@ trait SyncBlockImp[T <: Data, D, U, EO, EI, B <: Data] extends LazyModuleImp wit
     val peak = RegInit(UInt(), 0.U)
     val corr = RegInit(complexProto, 0.U.asTypeOf(complexProto))
 
+    sync.io.threshold := threshold
     sync.io.autocorrConfig.depthApart   := depthApart
     sync.io.autocorrConfig.depthOverlap := depthOverlap
 
