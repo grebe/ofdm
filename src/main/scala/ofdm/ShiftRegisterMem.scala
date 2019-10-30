@@ -1,7 +1,7 @@
 package ofdm
 
 import chisel3._
-import chisel3.core.requireIsChiselType
+import chisel3.internal.requireIsChiselType
 import chisel3.util._
 
 class ShiftRegisterMem[T <: Data](val gen: T, val maxDepth: Int) extends Module {

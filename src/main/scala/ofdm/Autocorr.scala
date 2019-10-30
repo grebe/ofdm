@@ -1,7 +1,7 @@
 package ofdm
 
 import chisel3._
-import chisel3.core.requireIsChiselType
+import chisel3.internal.requireIsChiselType
 import chisel3.experimental.FixedPoint
 import chisel3.util._
 import dsptools.numbers._
@@ -83,7 +83,7 @@ class AutocorrSimple[T <: Data : Ring](params: AutocorrParams[DspComplex[T]]) ex
   energySum.io.in.valid := ShiftRegister(in_fire_next, params.mulPipeDelay, resetData = false.B, en = io.in.fire())
 
   assert(energySum.io.out.valid === sum.io.out.valid, "energySum and sum valid signals should be the same")
-  io.energy.valid := energySum.io.out.valid // sum.io.out.valid
+  io.energy.valid := energySum.io.out.valid
   io.energy.bits  := energySum.io.out.bits
 
   /**

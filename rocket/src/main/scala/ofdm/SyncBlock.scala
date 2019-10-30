@@ -153,8 +153,8 @@ trait SyncBlockImp[T <: Data, D, U, EO, EI, B <: Data] extends LazyModuleImp wit
           (true.B, numPeaks)
         }),
         RegWriteFn((b: Bool, u: UInt) => {
-          sync.io.peakDetectConfig.numPeaks.valid := b
-          sync.io.peakDetectConfig.numPeaks.bits  := u
+          // sync.io.peakDetectConfig.numPeaks.valid := b
+          // sync.io.peakDetectConfig.numPeaks.bits  := u
           when (b) {
             numPeaks := u
           }
