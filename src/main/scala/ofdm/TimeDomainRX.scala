@@ -2,7 +2,7 @@ package ofdm
 
 import chisel3._
 import chisel3.internal.requireIsChiselType
-import chisel3.experimental.{FixedPoint, MultiIOModule}
+import chisel3.experimental.FixedPoint
 import chisel3.util._
 import dsptools.numbers._
 
@@ -37,7 +37,7 @@ case class RXParams[T <: Data : Ring]
   }
   val protoChannelEst: DspComplex[T] = protoFFTOut.real match {
     case p: FixedPoint =>
-      val proto = FixedPoint((p.getWidth + 4).W, (p.binaryPoint.get - 8).BP)
+      val proto = FixedPoint((p.getWidth + 4).W, (p.binaryPoint.get - 2).BP)
       DspComplex(proto, proto).asInstanceOf[DspComplex[T]]
     case r: DspReal => protoFFTOut
   }

@@ -1,7 +1,6 @@
 package ofdm
 
 import chisel3._
-import chisel3.experimental.{MultiIOModule, RawModule}
 import chisel3.util.{Cat, ShiftRegister, Valid, log2Ceil}
 
 class DivisionStageIO(val n: Int) extends Bundle {

@@ -6,7 +6,7 @@ import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.devices.debug.Debug
 import freechips.rocketchip.diplomacy.LazyModule
 
-class TestHarness()(implicit p: Parameters) extends experimental.MultiIOModule {
+class TestHarness()(implicit p: Parameters) extends MultiIOModule {
   val users = 1
 
   val success = IO(Output(Bool()))

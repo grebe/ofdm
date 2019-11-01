@@ -3,7 +3,7 @@ package ofdm
 import chisel3._
 import chisel3.util._
 import breeze.math.Complex
-import chisel3.experimental.{BaseModule, MultiIOModule}
+import chisel3.experimental.BaseModule
 import chisel3.iotesters.PeekPokeTester
 import dsptools.DspTester
 import dsptools.numbers._

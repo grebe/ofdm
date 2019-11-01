@@ -3,7 +3,7 @@ package ofdm
 import chisel3._
 import dspblocks._
 import freechips.rocketchip.amba.axi4._
-import freechips.rocketchip.amba.axi4stream.AXI4StreamIdentityNode
+import freechips.rocketchip.amba.axi4stream.{AXI4StreamIdentityNode, StreamingAXI4DMA}
 import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.diplomacy._
 

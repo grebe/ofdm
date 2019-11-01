@@ -2,15 +2,15 @@
 
 // Provide a managed dependency on X if -DXVersion="" is supplied on the command line.
 val defaultVersions = Map(
-  "dsptools" -> "1.2-SNAPSHOT",
-  "rocket-dsptools" -> "1.2-SNAPSHOT",
+  "dsptools" -> "1.2-100219-SNAPSHOT",
+  "rocket-dsptools" -> "1.2-100219-SNAPSHOT",
   "firesim" -> "1.0"
 )
 
 val commonSettings = Seq(
   organization := "edu.berkeley.cs",
   version      := "0.1-SNAPSHOT",
-  scalaVersion := "2.12.8",
+  scalaVersion := "2.12.10",
   resolvers ++= Seq(
     Resolver.sonatypeRepo("snapshots"),
     Resolver.sonatypeRepo("release")
@@ -64,11 +64,13 @@ lazy val ofdmRocket = (project in file("rocket")).
   dependsOn(ofdm).
   aggregate(ofdm)
 
+/*
 lazy val ofdmFiresim = (project in file("firesim")).
   settings(commonSettings: _*).
   settings(ofdmFiresimSettings: _*).
   dependsOn(ofdmRocket).
   aggregate(ofdmRocket)
+ */
 
 def scalacOptionsVersion(scalaVersion: String): Seq[String] = {
   Seq() ++ {

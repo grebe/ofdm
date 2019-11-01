@@ -113,8 +113,8 @@ class FFT_R2SDF[T <: Data : Ring : BinaryRepresentation : ConvertableTo](params:
   val io = IO(new FFT_R2SDF_io(gen))
   val s_dout_reg  = Seq.fill(nstages) { Reg(DspComplex(wgen)) }
   val s_dout  = Wire(Vec(nstages, DspComplex(wgen)))
-  val en_regs = RegInit(Vec(Seq.fill(nstages)(false.B)))
-  val dcnt    = RegInit(Vec(Seq.fill(nstages)(0.asUInt(nstages.W))))
+  val en_regs = RegInit(VecInit(Seq.fill(nstages)(false.B)))
+  val dcnt    = RegInit(VecInit(Seq.fill(nstages)(0.asUInt(nstages.W))))
   val cycles  = RegInit(0.asUInt((nstages+3).W))
   val din_reg = RegEnable(io.din.bits, !io.stall)
 

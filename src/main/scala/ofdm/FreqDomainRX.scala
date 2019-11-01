@@ -1,10 +1,9 @@
 package ofdm
 
 import chisel3._
-import chisel3.experimental.MultiIOModule
 import chisel3.util.Decoupled
 import dsptools.numbers._
-import ofdm.fft.{DITDecimType, FFTParams, SDFFFT, SDFFFTType}
+import ofdm.fft.{DITDecimType, FFTParams, SDFFFT, SDFFFTDeserOut, SDFFFTType}
 
 class FreqDomainRX[T <: Data : Real : BinaryRepresentation]
 (
@@ -16,7 +15,7 @@ class FreqDomainRX[T <: Data : Real : BinaryRepresentation]
   val out = IO(Decoupled(params.protoFFTOut))
   val tlastOut = IO(Output(Bool()))
 
-  val fftParams = FFTParams(
+  val fftParams = ofdm.fft.FFTParams[T](
     numPoints = params.nFFT,
     protoIQ = params.protoFFTIn,
     protoTwiddle = params.protoTwiddle,
@@ -25,6 +24,10 @@ class FreqDomainRX[T <: Data : Real : BinaryRepresentation]
     sdfRadix = 4,
     pipeline = true
   )
-  val fft = Module(new SDFFFT(fftParams))
+  val fft = Module(new SDFFFTDeserOut(fftParams))
   fft.io.in <> in
+  val eq = Module(new FlatPilotEstimator(params, Seq(4, 12, 20, 28, 36, 44, 52, 60)))
+  eq.in <> fft.io.out
+  eq.pilots.foreach { _ := DspComplex.wire(Ring[T].one, Ring[T].zero) }
+
 }
