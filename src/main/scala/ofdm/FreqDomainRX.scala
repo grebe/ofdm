@@ -26,8 +26,7 @@ class FreqDomainRX[T <: Data : Real : BinaryRepresentation]
   )
   val fft = Module(new SDFFFTDeserOut(fftParams))
   fft.io.in <> in
-  val eq = Module(new FlatPilotEstimator(params, Seq(4, 12, 20, 28, 36, 44, 52, 60)))
+  val eq = Module(new FlatPilotEstimator(params))
   eq.in <> fft.io.out
   eq.pilots.foreach { _ := DspComplex.wire(Ring[T].one, Ring[T].zero) }
-
 }

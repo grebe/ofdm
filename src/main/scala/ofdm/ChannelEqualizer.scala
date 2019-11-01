@@ -47,7 +47,7 @@ extends MultiIOModule {
   val out = Decoupled(Vec(params.nFFT, params.protoFFTOut))
   // val sigmaSquared = Input(params.protoFFTOut)
 
-  val estimator = Module(new FlatPilotEstimator(params, pilotPos = pilotPos))
+  val estimator = Module(new FlatPilotEstimator(params))
 
   estimator.in <> in
   estimator.pilots := pilots

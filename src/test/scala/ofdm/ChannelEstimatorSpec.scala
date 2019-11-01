@@ -153,15 +153,16 @@ object FlatPilotEstimatorTester {
       maxNumPeaks = 64,
       timeStampWidth = 64,
       autocorrParams = AutocorrParams(protoComplex, 1, 1),
-      ncoParams = NCOParams(10, 64, _ => proto, proto, proto)
+      ncoParams = NCOParams(10, 64, _ => proto, proto, proto),
+      pilotPos = Seq(4, 12, 20, 28, 36, 44, 52, 60)
     )
-    val pilotPos = Seq(4, 12, 20, 28, 36, 44, 52, 60)
+
 
     val out = ArrayBuffer[Seq[Complex]]()
 
     chisel3.iotesters.Driver.execute(
       Array[String]("-tbn", "treadle", "-tiwv"),
-      () => new FlatPilotEstimator(p, pilotPos = pilotPos)) {
+      () => new FlatPilotEstimator(p)) {
       c => new FlatPilotEstimatorTester[T](c, out)
     }
     out

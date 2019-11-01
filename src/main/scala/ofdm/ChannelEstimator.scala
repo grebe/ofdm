@@ -57,12 +57,12 @@ class SinglePointChannelEstimator[T <: Data : Ring : ConvertableTo](val params: 
 }
 
 class FlatPilotEstimator[T <: Data : Ring : ConvertableTo]
-(val params: RXParams[T], val pilotPos: Seq[Int]) extends MultiIOModule {
-  pilotPos.foreach (p => require(p >= 0 && p < params.nFFT, s"pilotPos must be in range [0, ${params.nFFT})"))
-  pilotPos.sliding(2).foreach { case l :: r :: Nil => require(l < r, "pilotPos must be increasing") }
+(val params: RXParams[T]) extends MultiIOModule {
+  params.pilotPos.foreach (p => require(p >= 0 && p < params.nFFT, s"pilotPos must be in range [0, ${params.nFFT})"))
+  params.pilotPos.sliding(2).foreach { case l :: r :: Nil => require(l < r, "pilotPos must be increasing") }
 
-  val nPilots = pilotPos.length
-  val maxPilotSeparation = (0 +: pilotPos :+ (params.nFFT - 1)).sliding(2).map(s => s(1) - s(0)).max
+  val nPilots = params.pilotPos.length
+  val maxPilotSeparation = (0 +: params.pilotPos :+ (params.nFFT - 1)).sliding(2).map(s => s(1) - s(0)).max
 
   val in = IO(Flipped(Decoupled(Vec(params.nFFT, params.protoFFTOut))))
   val pilots = IO(Input(Vec(nPilots, params.protoFFTIn)))
@@ -81,7 +81,7 @@ class FlatPilotEstimator[T <: Data : Ring : ConvertableTo]
   val inDelayed = ShiftRegister(in.bits, estimators.head.latency)
 
   estimators.zip(pilots).foreach { case (est, pilot) => est.in.bits.pilot := pilot }
-  estimators.zip(pilotPos).foreach { case (est, pos) => est.in.bits.sample := in.bits(pos) }
+  estimators.zip(params.pilotPos).foreach { case (est, pos) => est.in.bits.sample := in.bits(pos) }
   estimators.zipWithIndex.foreach { case (est, idx) =>
       // all of these ready/valid signals should be simplified because they should be ready and valid at the same time
       // this is mostly defensive
@@ -94,11 +94,11 @@ class FlatPilotEstimator[T <: Data : Ring : ConvertableTo]
   out.valid := TreeReduce(estValid, (l: Bool, r: Bool) => l && r)
 
   // left edge - use the first est for every subcarrier
-  for (i <- 0 until pilotPos.head) {
+  for (i <- 0 until params.pilotPos.head) {
     out.bits(i) := inDelayed(i) * estimators.head.out.bits
   }
   // interpolate ests for the middle subcarriers
-  for ((begin :: end :: Nil, pilotIdx) <- pilotPos.sliding(2).zipWithIndex) {
+  for ((begin :: end :: Nil, pilotIdx) <- params.pilotPos.sliding(2).zipWithIndex) {
     val extent = end - begin
     val leftEst = estimators(pilotIdx).out.bits
     val rightEst = estimators(pilotIdx + 1).out.bits
@@ -111,11 +111,11 @@ class FlatPilotEstimator[T <: Data : Ring : ConvertableTo]
     }
   }
   // right edge - use the last est for every subcarrier
-  for (i <- pilotPos.last + 1 until params.nFFT) {
+  for (i <- params.pilotPos.last + 1 until params.nFFT) {
     out.bits(i) := inDelayed(i) * estimators.last.out.bits
   }
   // put zero through pilots
-  for (p <- pilotPos) {
+  for (p <- params.pilotPos) {
     out.bits(p).real := Ring[T].zero
     out.bits(p).imag := Ring[T].zero
   }

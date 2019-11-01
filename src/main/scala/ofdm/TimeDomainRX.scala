@@ -17,6 +17,7 @@ case class RXParams[T <: Data : Ring]
   timeStampWidth: Int,
   autocorrParams: AutocorrParams[DspComplex[T]],
   ncoParams: NCOParams[T],
+  pilotPos: Seq[Int] = Seq(4, 12, 20, 28, 36, 44, 52, 60),
   queueDepth: Int = (1 << 13) - 1
 ) {
   Seq(protoADC, protoAngle, protoFFTIn, protoTwiddle).foreach { case proto =>
