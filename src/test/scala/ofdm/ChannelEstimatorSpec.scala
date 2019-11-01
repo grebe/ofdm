@@ -66,17 +66,9 @@ class SinglePointChannelEstimatorTester[T <: Data]
 object SinglePointChannelEstimatorTester {
   def apply[T <: Data : RealBits](proto: T, in: Seq[(Complex, Complex)]): Seq[Complex] = {
     val protoComplex = DspComplex(proto)
-    val p = RXParams(
-      protoADC = protoComplex,
-      protoFFTIn = protoComplex,
-      protoAngle = proto,
-      protoTwiddle = protoComplex,
-      nFFT = 64,
-      maxNumPeaks = 64,
-      timeStampWidth = 64,
-      autocorrParams = AutocorrParams(protoComplex, 1, 1),
-      ncoParams = NCOParams(10, 64, _ => proto, proto, proto)
-    )
+    val p = RXParams(protoADC = protoComplex, protoAngle = proto, protoFFTIn = protoComplex, protoTwiddle = protoComplex,
+      protoLLR = proto, maxNumPeaks = 64, timeStampWidth = 64, autocorrParams = AutocorrParams(protoComplex, 1, 1),
+      ncoParams = NCOParams(10, 64, _ => proto, proto, proto), nFFT = 64)
 
     val expects = in.map({ case (sample, pilot) => pilot / sample })
 
@@ -144,18 +136,9 @@ class FlatPilotEstimatorTester[T <: Data](dut: FlatPilotEstimator[T], out: Array
 object FlatPilotEstimatorTester {
   def apply[T <: Data : RealBits](proto: T): Seq[Seq[Complex]] = {
     val protoComplex = DspComplex(proto)
-    val p = RXParams(
-      protoADC = protoComplex,
-      protoFFTIn = protoComplex,
-      protoAngle = proto,
-      protoTwiddle = protoComplex,
-      nFFT = 64,
-      maxNumPeaks = 64,
-      timeStampWidth = 64,
-      autocorrParams = AutocorrParams(protoComplex, 1, 1),
-      ncoParams = NCOParams(10, 64, _ => proto, proto, proto),
-      pilotPos = Seq(4, 12, 20, 28, 36, 44, 52, 60)
-    )
+    val p = RXParams(protoADC = protoComplex, protoAngle = proto, protoFFTIn = protoComplex, protoTwiddle = protoComplex,
+      protoLLR = proto, maxNumPeaks = 64, timeStampWidth = 64, autocorrParams = AutocorrParams(protoComplex, 1, 1),
+      ncoParams = NCOParams(10, 64, _ => proto, proto, proto), pilotPos = Seq(4, 12, 20, 28, 36, 44, 52, 60), nFFT = 64)
 
 
     val out = ArrayBuffer[Seq[Complex]]()
