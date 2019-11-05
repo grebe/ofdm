@@ -1,20 +1,14 @@
 package ldpc
 
-import chisel3._
-
 sealed trait Block {
   val blockSize: Int
   val degree: Seq[Int]
-  def toBool(): Seq[Seq[Bool]]
   def toVariableSchedule(): Seq[VariableScheduleEntry]
 }
 case class ZeroBlock(blockSize: Int) extends Block {
   val degree = Seq.fill(blockSize)(0)
   def toVariableSchedule(): Seq[VariableScheduleEntry] = {
     Seq(VariableScheduleEntry(false, 0))
-  }
-  def toBool(): Seq[Seq[Bool]] = {
-    Seq.fill(blockSize) { Seq.fill(blockSize) { false.B } }
   }
 }
 case class IdentityRightCircularShiftBlock(blockSize: Int, shift: Int) extends Block {
@@ -23,13 +17,6 @@ case class IdentityRightCircularShiftBlock(blockSize: Int, shift: Int) extends B
   val degree = Seq.fill(blockSize)(1)
   def toVariableSchedule(): Seq[VariableScheduleEntry] = {
     Seq(VariableScheduleEntry(true, shift))
-  }
-
-  def toBool(): Seq[Seq[Bool]] = {
-    (for (i <- 0 until blockSize) yield {
-      val idx = (i + shift) % blockSize
-      Seq.fill(idx)(false.B) ++ Seq(true.B) ++ Seq.fill(blockSize - 1 - idx)(false.B)
-    }).toSeq
   }
 }
 
@@ -40,12 +27,6 @@ case class SumBlock(t0: Block, t1: Block) extends Block {
 
   def toVariableSchedule(): Seq[VariableScheduleEntry] = {
     t0.toVariableSchedule() ++ t1.toVariableSchedule()
-  }
-  def toBool(): Seq[Seq[Bool]] = {
-    t0.toBool().zip(t1.toBool()).map({
-      case (a: Seq[Bool], b: Seq[Bool]) =>
-        a.zip(b).map({ case (aa: Bool, bb: Bool) => aa ^ bb })
-    })
   }
 }
 
@@ -131,6 +112,8 @@ object Generator {
 
 object CCSDS {
   val bs64x128 = 16
+  val bs128x256 = 32
+  val bs256x512 = 64
   val params64x128 = LdpcParams(
     blockSize = bs64x128,
     parity = Seq(
@@ -180,6 +163,57 @@ object CCSDS {
         "7766137EBB248418" +
         "C480FEB9CD53A713" +
         "4EAA22FA465EEA11"
+    )
+  )
+  val params256x512 = LdpcParams(
+    blockSize = bs256x512,
+    parity = Seq(
+      Seq(
+        SumBlock(IdentityRightCircularShiftBlock(bs256x512, 63), IdentityRightCircularShiftBlock(bs256x512, 0)),
+        IdentityRightCircularShiftBlock(bs256x512, 30),
+        IdentityRightCircularShiftBlock(bs256x512, 50),
+        IdentityRightCircularShiftBlock(bs256x512, 25),
+        ZeroBlock(bs256x512),
+        IdentityRightCircularShiftBlock(bs256x512, 43),
+        IdentityRightCircularShiftBlock(bs256x512, 62),
+        IdentityRightCircularShiftBlock(bs256x512, 0)
+      ),
+      Seq(
+        IdentityRightCircularShiftBlock(bs256x512, 56),
+        SumBlock(IdentityRightCircularShiftBlock(bs256x512, 61), IdentityRightCircularShiftBlock(bs256x512, 0)),
+        IdentityRightCircularShiftBlock(bs256x512, 50),
+        IdentityRightCircularShiftBlock(bs256x512, 23),
+        IdentityRightCircularShiftBlock(bs256x512, 0),
+        ZeroBlock(bs256x512),
+        IdentityRightCircularShiftBlock(bs256x512, 37),
+        IdentityRightCircularShiftBlock(bs256x512, 26)
+      ),
+      Seq(
+        IdentityRightCircularShiftBlock(bs256x512, 16),
+        IdentityRightCircularShiftBlock(bs256x512, 0),
+        SumBlock(IdentityRightCircularShiftBlock(bs256x512, 55), IdentityRightCircularShiftBlock(bs256x512, 0)),
+        IdentityRightCircularShiftBlock(bs256x512, 27),
+        IdentityRightCircularShiftBlock(bs256x512, 56),
+        IdentityRightCircularShiftBlock(bs256x512, 0),
+        ZeroBlock(bs256x512),
+        IdentityRightCircularShiftBlock(bs256x512, 43),
+      ),
+      Seq(
+        IdentityRightCircularShiftBlock(bs256x512, 35),
+        IdentityRightCircularShiftBlock(bs256x512, 56),
+        IdentityRightCircularShiftBlock(bs256x512, 62),
+        SumBlock(IdentityRightCircularShiftBlock(bs256x512, 11), IdentityRightCircularShiftBlock(bs256x512, 0)),
+        IdentityRightCircularShiftBlock(bs256x512, 58),
+        IdentityRightCircularShiftBlock(bs256x512, 3),
+        IdentityRightCircularShiftBlock(bs256x512, 0),
+        ZeroBlock(bs256x512)
+      )
+    ),
+    generator = Generator.fromHexString(bs256x512, 512,
+      "1D21794A22761FAE59945014257E130D74D60540037940142DADEB9CA25EF12E" +
+        "60E0B6623C5CE5124D2C81ECC7F469AB20678DBFB7523ECE2B54B906A9DBE98C" +
+        "F6739BCF54273E77167BDA120C6C47744C071EFF5E32A7593138670C095C39B5" +
+        "28706BD0453002582DAB85F05B9201D08DFDEE2D9D84CA88B371FAE63A4EB07E"
     )
   )
 }

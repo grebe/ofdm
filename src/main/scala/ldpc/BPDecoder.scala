@@ -330,6 +330,4 @@ class BPDecoder[T <: Data : Real](protoLLR: T, val params: LdpcParams) extends M
     iterCount := 0.U
     fullIters := 0.U
   }
-
-  printf("%d %d\n", iterCount, fullIters)
 }
