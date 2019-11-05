@@ -68,12 +68,6 @@ case class LdpcParams
   generator.zipWithIndex.foreach { case (g, idx) =>
     require(g.length == n, s"Row $idx has length ${g.length}, expected $n") }
 
-  val columnDegree: Int = 0 // ???
-    //parity.map(_.map(_.degree.toSeq).reduce(_ ++ _).reduce({ case (l, r) =>
-    //  l.zip(r).map { case (ll: Int, rr: Int) => ll + rr }
-    // }))
-  val rowDegree: Int = parity.map(_.map(_.degree.toSeq).reduce(_ ++ _).reduce(_ + _)).max
-
   val schedule: Seq[VariableSchedule] = {
     val unbalanced: Seq[Seq[Seq[VariableScheduleEntry]]] = parity.map(_.map(_.toVariableSchedule).toSeq).toSeq
     // attempt to rebalance: any extras get pushed into empty spaces and then get appended
@@ -94,6 +88,10 @@ case class LdpcParams
     }
     evenedOut.map(row => VariableSchedule(row))
   }
+
+  val columnDegree: Int = schedule.length
+  val rowDegree: Int = schedule.head.entries.length
+
 }
 
 object Generator {

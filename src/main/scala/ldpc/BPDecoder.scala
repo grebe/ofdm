@@ -230,8 +230,8 @@ class BPDecoder[T <: Data : Real](protoLLR: T, val params: LdpcParams) extends M
   val schedule = params.schedule
 
   // state machine
-  val fullIters = RegInit(0.U(log2Ceil(params.maxIters).W))
-  val iterCount = RegInit(0.U(log2Ceil(params.columnDegree)))
+  val fullIters = RegInit(0.U(64.W)) // log2Ceil(params.maxIters).W))
+  val iterCount = RegInit(0.U(64.W)) // log2Ceil(params.columnDegree)))
   val sIdle :: sWorking :: sOutput :: Nil = chisel3.util.Enum(3)
   val state = RegInit(sIdle)
 
@@ -242,6 +242,9 @@ class BPDecoder[T <: Data : Real](protoLLR: T, val params: LdpcParams) extends M
   variableNodes.zip(in.bits).foreach { case (v, llr) =>
     v.prior := llr
   }
+  for (v <- variableNodes) {
+    v.firstIteration := fullIters === 0.U && iterCount === 0.U
+  }
   variableNodes.zip(out.bits).foreach { case (v, out) =>
       out := v.decision
   }
@@ -250,9 +253,8 @@ class BPDecoder[T <: Data : Real](protoLLR: T, val params: LdpcParams) extends M
 
   // the result of this expression is a Seq[] of wires.
   // each entry in the Seq is a tuple with three entries:
-  //  1) Vec[T] of inputs to VNGs
-  //  2) UInt wire that sets the current shift for the associated variable node group
-  //  3) Vec[T] of outputs of VNGs
+  //  1) Vec[Vec[T]] of inputs to VNGs
+  //  2) Vec[T] of outputs of VNGs
   val (shiftIns, shiftOuts) = (for ((group, idx) <- vng.zipWithIndex) yield {
     val mySchedule = schedule.map(_.entries(idx))
     val backShift = Module(new Shifter(Vec(2, protoLLR), params.blockSize))
@@ -277,8 +279,8 @@ class BPDecoder[T <: Data : Real](protoLLR: T, val params: LdpcParams) extends M
 
   // variable to check
   for (block <- 0 until params.blockSize) {
-    for ((varNode, groupIdx) <- shiftOuts.zipWithIndex) {
-      checkNodes(block).v2c(groupIdx) := varNode
+    for ((varNode: Seq[T], groupIdx) <- shiftOuts.zipWithIndex) {
+      checkNodes(block).v2c(groupIdx) := varNode(block)
     }
   }
 
@@ -292,24 +294,29 @@ class BPDecoder[T <: Data : Real](protoLLR: T, val params: LdpcParams) extends M
     VecInit(min, min2)
   }
   // connect check -> variable
-  for (idx <- 0 until vng.length) {
-    val mySchedule = schedule(idx)
-    val inputIdxs = mySchedule.entries.map(_._2)
+  for ((sh, i) <- shiftIns.zipWithIndex) {
+    val mySchedule = schedule.map(_.entries(i))
+    val inputIdxs = mySchedule.map(_._2)
     val uniqueInputIdxs = inputIdxs.distinct
     val inputTable = VecInit(inputIdxs.map(i => uniqueInputIdxs.indexOf(i).U))
     val inputs = VecInit(uniqueInputIdxs.map(i => checkNodes(i)).map(n => VecInit(n.c2vMin, n.c2v2ndMin)))
-    shiftIns(idx) := inputs(inputTable(iterCount))
+     for (j <- 0 until params.blockSize) {
+      sh(j) := inputs(inputTable(iterCount))
+    }
   }
 
-  when (state =!= sOutput && in.valid) {
+  val fullIterEnd = iterCount === (params.columnDegree - 1).U
+  val iterDone = fullIters >= (params.maxIters - 1).U && fullIterEnd
+  
+  in.ready := false.B
+  out.valid := iterDone
+  when (state === sIdle && in.valid) {
     state := sWorking
     iterCount := 0.U
     fullIters := 0.U
   }
 
-  val iterDone = fullIters === (params.maxIters - 1).U
   when (state === sWorking) {
-    val fullIterEnd = iterCount === (params.columnDegree - 1).U
     iterCount := Mux(fullIterEnd, 0.U, iterCount +% 1.U)
     fullIters := Mux(fullIterEnd, fullIters +% 1.U, fullIters)
     when (iterDone) {
@@ -319,8 +326,10 @@ class BPDecoder[T <: Data : Real](protoLLR: T, val params: LdpcParams) extends M
 
   when (iterDone && out.ready) {
     in.ready := true.B
-    state := sWorking
+    state := sIdle
     iterCount := 0.U
     fullIters := 0.U
   }
+
+  printf("%d %d\n", iterCount, fullIters)
 }
