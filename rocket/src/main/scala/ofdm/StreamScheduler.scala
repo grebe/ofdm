@@ -40,12 +40,14 @@ abstract class StreamScheduler[D, U, EO, EI, B <: Data](beatBytes: Int, counterO
 
   val hardCoded = BundleBridgeSink[DecoupledIO[SchedulingDescriptor]]()
 
-  val counter = counterOpt.getOrElse(new GlobalCycleCounter(beatBytes * 8, "StreamSchedulerCounter"))
+
 
   lazy val module = new LazyModuleImp(this) {
     val (ins, inPs) = streamNode.in.unzip
     require(streamNode.out.length == 1)
     val (out, outP) = streamNode.out.head
+
+    val counter = counterOpt.getOrElse(new GlobalCycleCounter(beatBytes * 8, "StreamSchedulerCounter"))
 
     val len = ins.length
     val currentTime = counter()
@@ -112,12 +114,12 @@ abstract class StreamScheduler[D, U, EO, EI, B <: Data](beatBytes: Int, counterO
 class AXI4_StreamScheduler(address: AddressSet, beatBytes: Int, counterOpt: Option[GlobalCycleCounter])
   extends StreamScheduler[AXI4MasterPortParameters, AXI4SlavePortParameters, AXI4EdgeParameters, AXI4EdgeParameters,
     AXI4Bundle](beatBytes, counterOpt) with AXI4HasCSR {
-  val mem = Some(AXI4RegisterNode(address = address, beatBytes = beatBytes))
+  val mem = Some(AXI4RegisterNode(address = address, beatBytes = beatBytes, concurrency = 1))
 }
 
 class TLStreamScheduler(address: AddressSet, beatBytes: Int, counterOpt: Option[GlobalCycleCounter])
   extends StreamScheduler[TLClientPortParameters, TLManagerPortParameters, TLEdgeOut, TLEdgeIn,
     TLBundle](beatBytes, counterOpt) with TLHasCSR {
   val dev = new SimpleDevice(devname = "bwrc,streamscheduler", devcompat = Seq("bwrc,streamscheduler"))
-  val mem = Some(TLRegisterNode(address = Seq(address), device = dev, beatBytes = beatBytes))
+  val mem = Some(TLRegisterNode(address = Seq(address), device = dev, beatBytes = beatBytes, concurrency = 1))
 }

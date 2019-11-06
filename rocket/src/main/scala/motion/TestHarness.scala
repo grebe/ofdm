@@ -15,7 +15,7 @@ class TestHarness()(implicit p: Parameters) extends MultiIOModule {
 
   val duts = for (u <- 0 until users) yield {
     val dut = Module(LazyModule(new Top).module)
-    dut.reset := reset.asBool | dut.debug.ndreset.asBool
+    dut.reset := reset.asBool | dut.debug.get.ndreset.asBool
 
     dut.dontTouchPorts()
     dut.tieOffInterrupts()
@@ -34,7 +34,7 @@ class TestHarness()(implicit p: Parameters) extends MultiIOModule {
         case _ =>
       }
     })
-    Debug.connectDebug(dut.debug, clock, reset.toBool(), individual_successes(u))
+    Debug.connectDebug(dut.debug, dut.psd, clock, reset.toBool(), out = individual_successes(u))
 
     dut
   }

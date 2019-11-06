@@ -16,10 +16,11 @@ class FreqDomainRXBlock[T <: Data : Real: BinaryRepresentation, D, U, E, O, B <:
   val outWidthBytes = (128 / 8)
   val streamNode = AXI4StreamAdapterNode(
     masterFn = { case m =>
-        AXI4StreamMasterPortParameters(m.masterParams.copy(n = inWidthBytes))
+        AXI4StreamMasterPortParameters(m.masterParams.copy(n = outWidthBytes))
     },
     slaveFn = { case s =>
-        AXI4StreamSlavePortParameters(s.slaveParams)
+        AXI4StreamSlavePortParameters(
+          s.slaveParams.copy(hasData = true, hasStrb = false, hasKeep = false, alwaysReady = false))
     }
   )
 
@@ -46,7 +47,7 @@ class FreqDomainRXBlock[T <: Data : Real: BinaryRepresentation, D, U, E, O, B <:
 }
 
 
-class TLFreqDomainRXBlock[T <: Data : Real: BinaryRepresentation](params: RXParams[T], address: AddressSet)
+class TLFreqDomainRXBlock[T <: Data : Real: BinaryRepresentation](params: RXParams[T]) // , address: AddressSet)
   extends FreqDomainRXBlock[T, TLClientPortParameters, TLManagerPortParameters, TLEdgeOut, TLEdgeIn, TLBundle](params) {
   // val device = new SimpleDevice("freqdomainrx", Seq("bwrc,freqdomainrx"))
 
@@ -54,7 +55,7 @@ class TLFreqDomainRXBlock[T <: Data : Real: BinaryRepresentation](params: RXPara
   // val mem = Some(TLRegisterNode(address = Seq(address), device = device))
 }
 
-class AXI4FreqDomainRXBlock[T <: Data : Real: BinaryRepresentation](params: RXParams[T], address: AddressSet)
+class AXI4FreqDomainRXBlock[T <: Data : Real: BinaryRepresentation](params: RXParams[T]) // , address: AddressSet)
   extends FreqDomainRXBlock[T, AXI4MasterPortParameters, AXI4SlavePortParameters, AXI4EdgeParameters, AXI4EdgeParameters, AXI4Bundle](params) {
   // def beatBytes: Int = mem.get.beatBytes
   // val mem = Some(AXI4RegisterNode(address = address))

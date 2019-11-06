@@ -10,7 +10,7 @@ case class RXParams[T <: Data : Ring]
 (protoADC: DspComplex[T], protoAngle: T, protoFFTIn: DspComplex[T], protoTwiddle: DspComplex[T],
  protoLLR: T, maxNumPeaks: Int, timeStampWidth: Int, autocorrParams: AutocorrParams[DspComplex[T]],
  ncoParams: NCOParams[T], pilotPos: Seq[Int] = Seq(4, 12, 20, 28, 36, 44, 52, 60),
- queueDepth: Int = (1 << 13) - 1, nFFT: Int) {
+ queueDepth: Int = (1 << 13) - 1, nFFT: Int = 64) {
   Seq(protoADC, protoAngle, protoFFTIn, protoTwiddle).foreach { case proto =>
     requireIsChiselType(proto)
     // this is mostly to require that widths are defined!
