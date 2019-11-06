@@ -165,6 +165,57 @@ object CCSDS {
         "4EAA22FA465EEA11"
     )
   )
+  val params128x256 = LdpcParams(
+    blockSize = bs128x256,
+    parity = Seq(
+      Seq(
+        SumBlock(IdentityRightCircularShiftBlock(bs128x256, 31), IdentityRightCircularShiftBlock(bs128x256, 0)),
+        IdentityRightCircularShiftBlock(bs128x256, 15),
+        IdentityRightCircularShiftBlock(bs128x256, 25),
+        IdentityRightCircularShiftBlock(bs128x256, 0),
+        ZeroBlock(bs128x256),
+        IdentityRightCircularShiftBlock(bs128x256, 20),
+        IdentityRightCircularShiftBlock(bs128x256, 12),
+        IdentityRightCircularShiftBlock(bs128x256, 0)
+      ),
+      Seq(
+        IdentityRightCircularShiftBlock(bs128x256, 28),
+        SumBlock(IdentityRightCircularShiftBlock(bs128x256, 30), IdentityRightCircularShiftBlock(bs128x256, 0)),
+        IdentityRightCircularShiftBlock(bs128x256, 29),
+        IdentityRightCircularShiftBlock(bs128x256, 24),
+        IdentityRightCircularShiftBlock(bs128x256, 0),
+        ZeroBlock(bs128x256),
+        IdentityRightCircularShiftBlock(bs128x256, 1),
+        IdentityRightCircularShiftBlock(bs128x256, 20)
+      ),
+      Seq(
+        IdentityRightCircularShiftBlock(bs128x256, 8),
+        IdentityRightCircularShiftBlock(bs128x256, 0),
+        SumBlock(IdentityRightCircularShiftBlock(bs128x256, 28), IdentityRightCircularShiftBlock(bs128x256, 0)),
+        IdentityRightCircularShiftBlock(bs128x256, 1),
+        IdentityRightCircularShiftBlock(bs128x256, 29),
+        IdentityRightCircularShiftBlock(bs128x256, 0),
+        ZeroBlock(bs128x256),
+        IdentityRightCircularShiftBlock(bs128x256, 21),
+      ),
+      Seq(
+        IdentityRightCircularShiftBlock(bs128x256, 18),
+        IdentityRightCircularShiftBlock(bs128x256, 30),
+        IdentityRightCircularShiftBlock(bs128x256, 0),
+        SumBlock(IdentityRightCircularShiftBlock(bs128x256, 30), IdentityRightCircularShiftBlock(bs128x256, 0)),
+        IdentityRightCircularShiftBlock(bs128x256, 25),
+        IdentityRightCircularShiftBlock(bs128x256, 26),
+        IdentityRightCircularShiftBlock(bs128x256, 0),
+        ZeroBlock(bs128x256)
+      )
+    ),
+    generator = Generator.fromHexString(bs128x256, 256,
+      "73F5E8390220CE5136ED68E9F39EB162" +
+        "BAC812C0BCD243794786D9285A09095C" +
+        "7DF83F76A5FF4C388E6C0D4E025EB712" +
+        "BAA37B3260CB31C5D0F66A31FAF511BC"
+    )
+  )
   val params256x512 = LdpcParams(
     blockSize = bs256x512,
     parity = Seq(
