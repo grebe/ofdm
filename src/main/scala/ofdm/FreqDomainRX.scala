@@ -1,8 +1,9 @@
 package ofdm
 
 import chisel3._
-import chisel3.util.{Decoupled, Queue}
+import chisel3.util.{Decoupled, Queue, ShiftRegister}
 import dsptools.numbers._
+import ldpc.{BPDecoder, CCSDS, LdpcParams}
 import ofdm.fft.{DITDecimType, FFTParams, SDFFFT, SDFFFTDeserOut, SDFFFTType}
 
 class FreqDomainRX[T <: Data : Real : BinaryRepresentation]
@@ -12,7 +13,7 @@ class FreqDomainRX[T <: Data : Real : BinaryRepresentation]
 ) extends MultiIOModule {
   val in = IO(Flipped(Decoupled(params.protoFFTIn)))
   val tlastIn = IO(Input(Bool()))
-  val out = IO(Decoupled(params.protoFFTOut))
+  val out = IO(Decoupled(UInt(128.W)))
   val tlastOut = IO(Output(Bool()))
 
   val fftParams = ofdm.fft.FFTParams[T](
@@ -45,4 +46,21 @@ class FreqDomainRX[T <: Data : Real : BinaryRepresentation]
   )))
   deser.io.in <> demodQueue.io.deq
   val deserFlat: Seq[T] = deser.io.out.bits.flatten.flatten
+
+  val ldpc = Module(new BPDecoder(params.protoLLR, CCSDS.params128x256))
+  ldpc.in.bits.zip(deserFlat).foreach { case (l, d) =>
+      l := d
+  }
+  ldpc.in.bits.drop(deserFlat.length).foreach { case (l) =>
+    // no prior - these bits are removed
+    l := Ring[T].zero
+  }
+  ldpc.in.valid := deser.io.out.valid
+  deser.io.out.ready := ldpc.in.ready
+
+  out.valid := ldpc.out.valid
+  out.bits := ldpc.out.bits.asUInt
+  ldpc.out.ready := out.ready
+
+  tlastOut := false.B // TODO
 }
