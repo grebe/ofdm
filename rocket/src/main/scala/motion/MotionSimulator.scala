@@ -1,7 +1,6 @@
 package motion
 
 import chisel3._
-import chisel3.core.IntParam
 import chisel3.util.{HasBlackBoxInline, HasBlackBoxResource}
 
 class MotionSimulator(users: Int) extends BlackBox // (params = Map("users" -> IntParam(users)))

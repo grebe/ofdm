@@ -1,7 +1,6 @@
 package motion
 
 import chisel3._
-import chisel3.core.ActualDirection
 import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.devices.debug.Debug
 import freechips.rocketchip.diplomacy.LazyModule

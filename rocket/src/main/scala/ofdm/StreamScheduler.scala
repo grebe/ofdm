@@ -1,14 +1,14 @@
 package ofdm
 
 import chisel3._
-import chisel3.util.{DecoupledIO, Queue, ValidIO, log2Ceil}
+import chisel3.util.{DecoupledIO, Queue, log2Ceil}
 import dspblocks.{AXI4HasCSR, DspBlock, HasCSR, TLHasCSR}
-import freechips.rocketchip.amba.axi4.{AXI4Bundle, AXI4EdgeParameters, AXI4MasterPortParameters, AXI4RegisterNode, AXI4SlavePortParameters}
+import freechips.rocketchip.amba.axi4._
 import freechips.rocketchip.amba.axi4stream.{AXI4StreamMasterPortParameters, AXI4StreamNexusNode}
 import freechips.rocketchip.config.Parameters
-import freechips.rocketchip.diplomacy.{AddressSet, BundleBridgeSink, LazyModule, LazyModuleImp, SimpleDevice}
+import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.regmapper.{RegField, RegFieldDesc, RegReadFn, RegWriteFn}
-import freechips.rocketchip.tilelink.{TLBundle, TLClientPortParameters, TLEdgeIn, TLEdgeOut, TLManagerPortParameters, TLRegisterNode}
+import freechips.rocketchip.tilelink._
 
 /**
   * Internal bundle type for stream scheduler
@@ -100,7 +100,7 @@ abstract class StreamScheduler[D, U, EO, EI, B <: Data](beatBytes: Int, counterO
             }
             !hardCodedFiring // true.B // iready
           }),
-          desc = RegFieldDesc(name = s"go_$idx", desc = "schedule stream $idx"))
+          desc = RegFieldDesc(name = s"go_$idx", desc = s"schedule stream $idx"))
       )
     })
 

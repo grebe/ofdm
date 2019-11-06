@@ -2,7 +2,7 @@ package ofdm
 
 import chipsalliance.rocketchip.config.Parameters
 import chisel3._
-import dspblocks.{AXI4HasCSR, DspBlock, HasCSR, TLHasCSR}
+import dspblocks.DspBlock
 import dsptools.numbers._
 import freechips.rocketchip.amba.axi4._
 import freechips.rocketchip.amba.axi4stream._
