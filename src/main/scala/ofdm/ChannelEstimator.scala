@@ -3,7 +3,7 @@ package ofdm
 import breeze.numerics.sincpi
 import chisel3._
 import chisel3.experimental.FixedPoint
-import chisel3.util.{Decoupled, ShiftRegister, log2Ceil}
+import chisel3.util.{Decoupled, ShiftRegister}
 import dsptools.DspContext
 import dsptools.numbers._
 

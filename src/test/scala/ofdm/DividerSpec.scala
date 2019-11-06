@@ -1,7 +1,5 @@
 package ofdm
 
-import java.util
-
 import chisel3.iotesters.PeekPokeTester
 import org.scalatest.{FlatSpec, Matchers}
 

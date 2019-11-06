@@ -1,10 +1,10 @@
 package ofdm
 
 import chisel3._
-import chisel3.util.{Decoupled, Queue, ShiftRegister}
+import chisel3.util.{Decoupled, Queue}
 import dsptools.numbers._
-import ldpc.{BPDecoder, CCSDS, LdpcParams}
-import ofdm.fft.{DITDecimType, FFTParams, SDFFFT, SDFFFTDeserOut, SDFFFTType}
+import ldpc.{BPDecoder, CCSDS}
+import ofdm.fft.{DITDecimType, SDFFFTDeserOut, SDFFFTType}
 
 class FreqDomainRX[T <: Data : Real : BinaryRepresentation]
 (

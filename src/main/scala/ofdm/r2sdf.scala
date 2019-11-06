@@ -1,13 +1,12 @@
 package ofdm
 import chisel3._
 import chisel3.experimental.FixedPoint
-import chisel3.core.requireIsChiselType
+import chisel3.internal.requireIsChiselType
 import chisel3.util._
 import dsptools.numbers._
 import dsptools._
-import scala.math._
-import scala.math.{pow,sin,cos,Pi}
-import breeze.math.Complex
+
+import scala.math.{Pi, cos, sin}
 
 case class FFTParams[T <: Data](
   proto: T, 
