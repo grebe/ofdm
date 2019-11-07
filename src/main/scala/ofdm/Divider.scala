@@ -1,8 +1,7 @@
 package ofdm
 
 import chisel3._
-import chisel3.experimental.{MultiIOModule, RawModule}
-import chisel3.util.{Cat, ShiftRegister, Valid, log2Ceil}
+import chisel3.util.{Cat, ShiftRegister, Valid}
 
 class DivisionStageIO(val n: Int) extends Bundle {
   val pin = Input(UInt( (2*n).W ))

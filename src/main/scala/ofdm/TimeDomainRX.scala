@@ -2,23 +2,15 @@ package ofdm
 
 import chisel3._
 import chisel3.internal.requireIsChiselType
-import chisel3.experimental.{FixedPoint, MultiIOModule}
+import chisel3.experimental.FixedPoint
 import chisel3.util._
 import dsptools.numbers._
 
 case class RXParams[T <: Data : Ring]
-(
-  protoADC: DspComplex[T],
-  protoAngle: T,
-  protoFFTIn: DspComplex[T],
-  protoTwiddle: DspComplex[T],
-  nFFT: Int,
-  maxNumPeaks: Int,
-  timeStampWidth: Int,
-  autocorrParams: AutocorrParams[DspComplex[T]],
-  ncoParams: NCOParams[T],
-  queueDepth: Int = (1 << 13) - 1
-) {
+(protoADC: DspComplex[T], protoAngle: T, protoFFTIn: DspComplex[T], protoTwiddle: DspComplex[T],
+ protoLLR: T, maxNumPeaks: Int, timeStampWidth: Int, autocorrParams: AutocorrParams[DspComplex[T]],
+ ncoParams: NCOParams[T], pilotPos: Seq[Int] = Seq(4, 12, 20, 28, 36, 44, 52, 60),
+ queueDepth: Int = (1 << 13) - 1, nFFT: Int = 64) {
   Seq(protoADC, protoAngle, protoFFTIn, protoTwiddle).foreach { case proto =>
     requireIsChiselType(proto)
     // this is mostly to require that widths are defined!
@@ -37,10 +29,12 @@ case class RXParams[T <: Data : Ring]
   }
   val protoChannelEst: DspComplex[T] = protoFFTOut.real match {
     case p: FixedPoint =>
-      val proto = FixedPoint((p.getWidth + 4).W, (p.binaryPoint.get - 8).BP)
+      val proto = FixedPoint((p.getWidth + 4).W, (p.binaryPoint.get - 2).BP)
       DspComplex(proto, proto).asInstanceOf[DspComplex[T]]
     case r: DspReal => protoFFTOut
   }
+  val nPilots = pilotPos.length
+  val nDataSubcarriers = nFFT - nPilots
 
   def toSyncParams() = SyncParams(protoADC, protoFFTIn, maxNumPeaks, timeStampWidth, autocorrParams)
 }

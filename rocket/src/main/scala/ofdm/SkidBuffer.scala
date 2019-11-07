@@ -23,16 +23,17 @@ trait SkidBuffer[D, U, EO, EI, B <: Data] extends DspBlock[D, U, EO, EI, B] with
     val (int, _) = intNode.out.head
 
     val watershed = RegInit(depth.U)
-    val en = RegInit(true.B)
+    val en = RegInit(false.B)
     val queueOverflowed = RegInit(false.B)
+    val queueExceededWatershed = RegInit(false.B)
+    val drainUpstreamWhenDisabled = RegInit(false.B)
 
     val queue = Module(new Queue(new AXI4StreamBundlePayload(inP.bundle), depth))
     queue.io.enq <> in
     out <> queue.io.deq
 
     when (!en) {
-      // when not enabled, drain the queue
-      in.ready := false.B
+      in.ready := drainUpstreamWhenDisabled
       queue.io.enq.valid := false.B
       queue.io.deq.ready := true.B
       out.valid := false.B
@@ -40,6 +41,9 @@ trait SkidBuffer[D, U, EO, EI, B <: Data] extends DspBlock[D, U, EO, EI, B] with
 
     when (!queue.io.enq.ready) {
       queueOverflowed := true.B
+    }
+    when (queue.io.count >= watershed) {
+      queueExceededWatershed := true.B
     }
 
     int(0) := queue.io.count >= watershed
@@ -53,6 +57,10 @@ trait SkidBuffer[D, U, EO, EI, B <: Data] extends DspBlock[D, U, EO, EI, B] with
         RegFieldDesc("count", "number of entries in queue"))),
       beatBytes * 3 -> Seq(RegField(1, queueOverflowed,
         RegFieldDesc("overflowed", "set to true if the queue ever overflowed (need to clear from SW)"))),
+      beatBytes * 4 -> Seq(RegField(1, queueExceededWatershed,
+        RegFieldDesc("overflowWatershed", "set to true if the queue ever overflowed the watershed (need to clear from SW)"))),
+      beatBytes * 5 -> Seq(RegField(1, drainUpstreamWhenDisabled,
+        RegFieldDesc("drainUpstream", "when set, drain upstream queue. otherwise backpressure"))),
     )
   }
 }

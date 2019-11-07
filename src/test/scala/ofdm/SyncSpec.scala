@@ -12,6 +12,10 @@ class SyncSpec extends FlatSpec with Matchers {
 
   behavior of "Time-domain RX"
 
+  def seqToString(c: Seq[Complex]): String =
+    "[" +
+    c.map(i => s"${i.real}+${i.imag}j").mkString(", ") +
+    "]"
 
   def runTest[T <: Data : Real : BinaryRepresentation](signal: Seq[Complex], params: RXParams[T], thresh: Double = 0.5): Seq[(Complex, Int)] = {
     var output = Seq[(Complex, Int)]()
@@ -79,34 +83,25 @@ class SyncSpec extends FlatSpec with Matchers {
   val protoAngle = FixedPoint(16.W, 13.BP)
   val protoFreq = FixedPoint(16.W, 8.BP)
 
-  val stfParams = RXParams(
-    protoADC = DspComplex(protoIn),
-    protoFFTIn = DspComplex(protoOut),
-    protoAngle = protoAngle,
-    maxNumPeaks = 256,
-    timeStampWidth = 64,
+  val stfParams = RXParams(protoADC = DspComplex(protoIn), protoAngle = protoAngle, protoFFTIn = DspComplex(protoOut),
+    protoTwiddle = DspComplex(protoIn), protoLLR = protoIn, maxNumPeaks = 256, timeStampWidth = 64,
     autocorrParams = AutocorrParams(
-      protoIn = DspComplex(protoIn),
-      maxApart = 256,
-      maxOverlap = 256
-    ),
-    ncoParams = NCOParams(
-      phaseWidth = 16,
-      tableSize = 64,
-      phaseConv = u => u.asTypeOf(protoAngle),
-      protoFreq = protoFreq,
-      protoOut = protoOut,
-    ),
-    protoTwiddle = DspComplex(protoIn),
-    nFFT = 64
-  )
+        protoIn = DspComplex(protoIn),
+        maxApart = 256,
+        maxOverlap = 256
+      ), ncoParams = NCOParams(
+        phaseWidth = 16,
+        tableSize = 64,
+        phaseConv = u => u.asTypeOf(protoAngle),
+        protoFreq = protoFreq,
+        protoOut = protoOut,
+      ), nFFT = 64)
 
   it should "correct no CFO with STF" in {
     val testSignal = IEEE80211.stf ++ IEEE80211.ltf ++ IEEE80211.sigFreq(5, 6 * 4, 0) ++ Seq.fill(500) { Complex(0.0, 0) }
     val cfoSignal = IEEE80211.addCFO(testSignal, 0.0e3)
 
     val output = runTest(cfoSignal, stfParams)
-
 
     println(s"Input was:")
     println(cfoSignal.toString)

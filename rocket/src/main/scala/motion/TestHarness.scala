@@ -1,12 +1,11 @@
 package motion
 
 import chisel3._
-import chisel3.core.ActualDirection
 import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.devices.debug.Debug
 import freechips.rocketchip.diplomacy.LazyModule
 
-class TestHarness()(implicit p: Parameters) extends experimental.MultiIOModule {
+class TestHarness()(implicit p: Parameters) extends MultiIOModule {
   val users = 1
 
   val success = IO(Output(Bool()))
@@ -16,7 +15,7 @@ class TestHarness()(implicit p: Parameters) extends experimental.MultiIOModule {
 
   val duts = for (u <- 0 until users) yield {
     val dut = Module(LazyModule(new Top).module)
-    dut.reset := reset.asBool | dut.debug.ndreset.asBool
+    dut.reset := reset.asBool | dut.debug.get.ndreset.asBool
 
     dut.dontTouchPorts()
     dut.tieOffInterrupts()
@@ -35,7 +34,7 @@ class TestHarness()(implicit p: Parameters) extends experimental.MultiIOModule {
         case _ =>
       }
     })
-    Debug.connectDebug(dut.debug, clock, reset.toBool(), individual_successes(u))
+    Debug.connectDebug(dut.debug, dut.psd, clock, reset.toBool(), out = individual_successes(u))
 
     dut
   }

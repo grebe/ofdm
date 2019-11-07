@@ -1,9 +1,7 @@
 package ofdm
 
 import chisel3._
-import chisel3.experimental.MultiIOModule
-import chisel3.util.{Decoupled, log2Ceil}
-import dsptools.DspContext
+import chisel3.util.{Decoupled, Valid, log2Ceil}
 import dsptools.numbers._
 
 class PreambleChannelEqualizer[T <: Data : Ring : ConvertableTo](params: RXParams[T]) extends MultiIOModule {
@@ -48,5 +46,23 @@ class PreambleChannelEqualizer[T <: Data : Ring : ConvertableTo](params: RXParam
   when (estimator.out.fire()) {
     weightCount := Mux(weightCount === (params.nFFT - 1).U, 0.U, weightCount +% 1.U)
     weights(weightCount) := estimator.out.bits
+  }
+}
+
+class FlatPilotEqualizer[T <: Data : Ring : ConvertableTo](params: RXParams[T], pilotPos: Seq[Int])
+extends MultiIOModule {
+  val in = Flipped(Decoupled(Vec(params.nFFT, params.protoFFTOut)))
+  val pilots = Input(Vec(params.nFFT, Valid(params.protoFFTIn)))
+  val out = Decoupled(Vec(params.nFFT, params.protoFFTOut))
+  // val sigmaSquared = Input(params.protoFFTOut)
+
+  val estimator = Module(new FlatPilotEstimator(params))
+
+  estimator.in <> in
+  estimator.pilots := pilots
+  // out <> estimator.out
+
+  for (((i, o), est) <- in.bits.zip(out.bits).zip(estimator.out.bits)) {
+    o := i * est
   }
 }

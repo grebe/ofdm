@@ -2,7 +2,6 @@ package motion
 
 import chisel3._
 import chisel3.util.{Decoupled, Queue}
-import chisel3.util.experimental.BoringUtils
 import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.diplomacy.LazyModule
 import freechips.rocketchip.regmapper.{HasRegMap, RegField, RegWriteFn}

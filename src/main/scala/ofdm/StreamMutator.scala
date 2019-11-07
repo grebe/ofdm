@@ -2,7 +2,6 @@ package ofdm
 
 import chisel3._
 import chisel3.internal.requireIsChiselType
-import chisel3.experimental.MultiIOModule
 import chisel3.util.{Decoupled, Queue, Valid, log2Ceil}
 
 class MutatorCommandDescriptor(val numPass: Int, val idWidth: Int = 8) extends Bundle {

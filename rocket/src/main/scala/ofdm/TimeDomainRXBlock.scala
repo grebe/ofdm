@@ -22,6 +22,8 @@ abstract class TimeDomainRXBlock[T <: Data : Real: BinaryRepresentation, D, U, E
 
   lazy val module = new LazyModuleImp(this) {
     val rx = Module(new TimeDomainRX(params))
+    rx.mutatorCommandIn.valid := false.B
+    rx.mutatorCommandIn.bits := DontCare // TODO
 
     val (in, inP) = streamNode.in.head
     val (out, outP) = streamNode.out.head
@@ -95,7 +97,7 @@ abstract class TimeDomainRXBlock[T <: Data : Real: BinaryRepresentation, D, U, E
         RegFieldDesc(name = "globalCycleEn", desc = "Enable for global cycle counter")),
 
       // read-only status
-      RegField.r(64, rx.currentCycle,
+      RegField.r(32, rx.currentCycle,
         RegFieldDesc(name = "currentCycle", desc = "current cycle of global cycle counter")),
       RegField.r(angleWidth, rx.freqOut.asUInt,
         RegFieldDesc(name = "freqOut", desc = "current frequency estimate")),
@@ -123,16 +125,16 @@ abstract class TimeDomainRXBlock[T <: Data : Real: BinaryRepresentation, D, U, E
   }
 }
 
-class TLTimeDomainRXBlock[T <: Data : Real: BinaryRepresentation](params: RXParams[T], address: AddressSet)
+class TLTimeDomainRXBlock[T <: Data : Real: BinaryRepresentation](params: RXParams[T], address: AddressSet, _beatBytes: Int = 4)
   extends TimeDomainRXBlock[T, TLClientPortParameters, TLManagerPortParameters, TLEdgeOut, TLEdgeIn, TLBundle](params) with TLHasCSR {
   val device = new SimpleDevice("timedomainrx", Seq("bwrc,timedomainrx"))
 
-  def beatBytes: Int = mem.get.beatBytes
-  val mem = Some(TLRegisterNode(address = Seq(address), device = device))
+  def beatBytes: Int = _beatBytes
+  val mem = Some(TLRegisterNode(address = Seq(address), device = device, beatBytes = beatBytes))
 }
 
-class AXI4TimeDomainRXBlock[T <: Data : Real: BinaryRepresentation](params: RXParams[T], address: AddressSet)
+class AXI4TimeDomainRXBlock[T <: Data : Real: BinaryRepresentation](params: RXParams[T], address: AddressSet, _beatBytes: Int = 4)
   extends TimeDomainRXBlock[T, AXI4MasterPortParameters, AXI4SlavePortParameters, AXI4EdgeParameters, AXI4EdgeParameters, AXI4Bundle](params) with AXI4HasCSR {
-  def beatBytes: Int = mem.get.beatBytes
-  val mem = Some(AXI4RegisterNode(address = address))
+  def beatBytes: Int = _beatBytes
+  val mem = Some(AXI4RegisterNode(address = address, beatBytes = beatBytes))
 }

@@ -97,7 +97,7 @@ object IEEE80211 {
     (grouped.map(_.apply(0)) ++ grouped.map(_.apply(1)) ++ grouped.map(_.apply(2))).toArray
   }
   def interleaveP2(data: Array[Boolean], nbpsc: Int = 1): Array[Boolean] = {
-    val s = scala.math.max(nbpsc >> 1, 1)
+    // val s = scala.math.max(nbpsc >> 1, 1)
     require(data.length == 48)
     data // TODO
   }

@@ -1,11 +1,10 @@
 package ofdm
 
-import amba.axi4stream.SimpleSplitter
 import chisel3._
-import chisel3.core.requireIsChiselType
+import chisel3.internal.requireIsChiselType
 import dspblocks._
 import dsptools.numbers._
-import freechips.rocketchip.amba.axi4stream.AXI4StreamIdentityNode
+import freechips.rocketchip.amba.axi4stream.{AXI4StreamIdentityNode, SimpleSplitter}
 import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.tilelink._
 
