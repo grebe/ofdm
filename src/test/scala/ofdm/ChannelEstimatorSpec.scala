@@ -116,13 +116,15 @@ class FlatPilotEstimatorTester[T <: Data](dut: FlatPilotEstimator[T], out: Array
     }
     step(1)
     while (!peek(dut.in.ready)) {
-      checkOutput()
       step(1)
+      checkOutput()
     }
   }
+  // checkOutput()
+  // step(1)
   poke(dut.in.valid, 0)
   var dead_cycles = 0
-  while (dead_cycles < 50) {
+  while (dead_cycles < 100) {
     while(peek(dut.out.valid)) {
       dead_cycles = 0
       checkOutput()
