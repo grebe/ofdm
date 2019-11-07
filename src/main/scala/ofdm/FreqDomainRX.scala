@@ -27,4 +27,10 @@ class FreqDomainRX[T <: Data : Real : BinaryRepresentation]
   )
   val fft = Module(new SDFFFT(fftParams))
   fft.io.in <> in
+  val esel = Wire(UInt())
+  val switch = DecoupledSwitch(fft.io.out, esel, 2)
+  val est = Module(new SinglePointChannelEstimator(params))
+  val eq = Module(new PreambleChannelEqualizer(params))
+  est.in <> switch(0)
+  eq.in <> switch(1)
 }

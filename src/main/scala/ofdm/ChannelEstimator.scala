@@ -49,7 +49,7 @@ class SinglePointChannelEstimator[T <: Data : Ring : ConvertableTo](params: RXPa
 
   println(s"latency=$latency")
 
-  val outBuffering = PipeliningQueue(latency, in, out)
+  val outBuffering = Skid(latency, in, out)
   outBuffering := mult
 
   tlastOut := ShiftRegister(tlastIn, latency, resetData = false.B, en = true.B)

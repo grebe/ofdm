@@ -4,7 +4,7 @@ import chisel3._
 import chisel3.internal.requireIsHardware
 import chisel3.util.{DecoupledIO, Queue, ShiftRegister, TransitName, log2Ceil}
 
-object PipeliningQueue {
+object Skid {
   def apply[T <: Data](latency: Int, in: DecoupledIO[_ <: Data], out: DecoupledIO[T], en: Bool = true.B): T = {
     requireIsHardware(in)
     requireIsHardware(out)
