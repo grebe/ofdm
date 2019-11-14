@@ -4,7 +4,7 @@ import chisel3._
 import chisel3.util.{Decoupled, Queue}
 import dsptools.numbers._
 import ldpc.{BPDecoder, CCSDS}
-import ofdm.fft.{DITDecimType, SDFFFTDeserOut, SDFFFTType}
+import ofdm.fft.{DITDecimType, PacketDeserializer, PacketSerDesParams, SDFFFTDeserOut, SDFFFTType}
 
 class FreqDomainRX[T <: Data : Real : BinaryRepresentation]
 (
@@ -25,10 +25,13 @@ class FreqDomainRX[T <: Data : Real : BinaryRepresentation]
     sdfRadix = 4,
     pipeline = true
   )
-  val fft = Module(new SDFFFTDeserOut(fftParams))
-  fft.io.in <> in
+  val fft = Module(new R22SDF(fftParams.numPoints, protoIn = fftParams.protoIQ.real, protoOut = fftParams.protoIQ.real, protoTwiddle = fftParams.protoTwiddle.real))
+  val fftDeser = Module(new PacketDeserializer(PacketSerDesParams(fftParams.protoIQ, fftParams.numPoints)))
+  fft.in <> in
+  fftDeser.io.in <> fft.out
+  // val fft = Module(new SDFFFTDeserOut(fftParams))
   val eq = Module(new FlatPilotEstimator(params))
-  eq.in <> fft.io.out
+  eq.in <> fftDeser.io.out
   eq.pilots.foreach { _ := DspComplex.wire(Ring[T].one, Ring[T].zero) }
   val dataSelector = Module(new DataSelector(params))
   dataSelector.in <> eq.out
