@@ -2,6 +2,7 @@ package ofdm
 
 import chisel3._
 import chisel3.util.{Decoupled, Valid, log2Ceil}
+import dsptools.DspContext
 import dsptools.numbers._
 
 class PreambleChannelEqualizer[T <: Data : Ring : ConvertableTo](params: RXParams[T]) extends MultiIOModule {

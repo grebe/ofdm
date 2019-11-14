@@ -1,7 +1,6 @@
 package ofdm
 
 import chisel3._
-import chisel3.experimental.MultiIOModule
 import chisel3.internal.{requireIsChiselType, requireIsHardware}
 import chisel3.util.{Decoupled, DecoupledIO, log2Ceil}
 
