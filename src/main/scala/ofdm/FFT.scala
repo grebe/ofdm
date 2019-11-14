@@ -297,18 +297,18 @@ extends MultiIOModule {
           Seq.fill(stageN / 4)(0) ++
           Seq.tabulate(stageN / 4)(i => i * 2) ++
           Seq.tabulate(stageN / 4)(i => i) ++
-          Seq.tabulate(stageN / 4)(i => i * 3)
+          Seq.tabulate(stageN / 4)(i => i * 3) // ++
         val uniqueTwiddleIdxs = twiddleIdxs.distinct.sorted
         val uniqueTwiddleTable = VecInit(uniqueTwiddleIdxs.map(t =>
           DspComplex.wire(
-            real = ConvertableTo[T].fromDoubleWithFixedWidth(math.cos(2 * math.Pi * t / stageN), protoTwiddle),
+            real = ConvertableTo[T].fromDoubleWithFixedWidth( math.cos(2 * math.Pi * t / stageN), protoTwiddle),
             imag = ConvertableTo[T].fromDoubleWithFixedWidth(-math.sin(2 * math.Pi * t / stageN), protoTwiddle)
           )))
         val twiddleIdxTable = VecInit(twiddleIdxs.map(i => {
           ( (uniqueTwiddleIdxs.indexOf(i) /*+ stageN / 2*/) /*% stageN*/).U
         }))
 
-        val twiddleCnt = ShiftRegister(stageCnt, 2 * DspContext.current.numAddPipes)
+        val twiddleCnt = stageCnt + (2 * DspContext.current.numAddPipes).U // - (stageN / 2 + 2 * DspContext.current.numAddPipes).U // ShiftRegister(stageCnt, 2 * DspContext.current.numAddPipes)
         stage.out context_* uniqueTwiddleTable(twiddleIdxTable(twiddleCnt))
       } else {
         stage.out

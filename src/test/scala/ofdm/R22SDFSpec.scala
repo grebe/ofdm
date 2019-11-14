@@ -8,7 +8,7 @@ import dsptools.numbers._
 import org.scalatest.{FlatSpec, Matchers}
 
 class R22SDFTester[T <: Data](dut: R22SDF[T]) extends DspTester(dut) {
-  val freq = 3
+  val freq = 4
 
   val inputSeq = Seq.tabulate(dut.n) (i => Complex(
     math.cos(2 * math.Pi * freq * i.toDouble / dut.n),
@@ -51,7 +51,7 @@ class R22SDFSpec extends FlatSpec with Matchers {
       numAddPipes = 1,
       numMulPipes = 3,
     )) {
-      R22SDFTester(4, proto, proto, proto) should be(true)
+      R22SDFTester(16, proto, proto, proto) should be(true)
     }
   }
 }
