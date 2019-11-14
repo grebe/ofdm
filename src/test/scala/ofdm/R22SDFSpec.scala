@@ -8,7 +8,7 @@ import dsptools.numbers._
 import org.scalatest.{FlatSpec, Matchers}
 
 class R22SDFTester[T <: Data](dut: R22SDF[T]) extends DspTester(dut) {
-  val freq = 4
+  val freq = 7
 
   val inputSeq = Seq.tabulate(dut.n) (i => Complex(
     math.cos(2 * math.Pi * freq * i.toDouble / dut.n),
@@ -19,7 +19,7 @@ class R22SDFTester[T <: Data](dut: R22SDF[T]) extends DspTester(dut) {
 
   poke(dut.in.valid, 1)
   poke(dut.out.ready, 1)
-  while (output.length < dut.n * 4) {
+  while (output.length < dut.n) {
     if (input.hasNext && peek(dut.in.ready)) {
       poke(dut.in.bits, input.next())
     }

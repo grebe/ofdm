@@ -271,7 +271,7 @@ extends MultiIOModule {
   when (in.fire()) {
     cnt := cnt +% 1.U
   }
-  val initialDelay = (1 << logn) - 1
+  val initialDelay = n - 1
   // val initialOutCnt = RegInit(0.U(logn.W)) // Used to eliminate the first garbage samples0
 
   val complexMulLatency = if (DspContext.current.complexUse4Muls) {
@@ -327,13 +327,18 @@ extends MultiIOModule {
   println(s"latency = $latency, numAdd = ${DspContext.current.numAddPipes}, numMul = ${DspContext.current.numMulPipes}")
   // entries has + 1 because does not input does not flow through to output in single cycle
   val outQueue = Module(new Queue(DspComplex(protoOut), entries = latency + 1))
-  val hasWorthwhileInput = in.fire() // && cnt(logn)
-  val initialOutDone = RegInit(true.B)
+  val initialInDone = RegInit(false.B)
+  val hasWorthwhileInput = in.fire() && initialInDone // && cnt(logn)
+  val initialOutDone = RegInit(false.B)
   // when (outEn) {
   //   initialOutCnt := initialOutCnt +% 1.U
   // }
   // when (initialOutCnt === initialDelay.U) {
-  when (outCnt === initialDelay.U) {
+  printf("outCnt = %d\n", outCnt)
+  when (cnt === (initialDelay - 1).U) {
+    initialInDone := true.B
+  }
+  when (outCnt === (initialDelay - 1).U) {
     initialOutDone := true.B
   }
   val hasWorthwhileOutput = outEn && initialOutDone // && outCnt(logn)
