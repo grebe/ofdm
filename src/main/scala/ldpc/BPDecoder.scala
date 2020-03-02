@@ -6,29 +6,39 @@ import chisel3.util.{Decoupled, ShiftRegister, isPow2, log2Ceil}
 import dsptools.numbers._
 import ofdm.TreeReduce
 
-class VariableNode[T <: Data : Real](proto: T, protoAccum: T, accumCycles: Int) extends MultiIOModule {
+class VariableNode[T <: Data : Real](proto: T, protoAccum: T, accumCycles: Int, pipelineStages: Int = 0) extends MultiIOModule {
   requireIsChiselType(proto)
+  require(pipelineStages >= 0)
+  val c2vSign = IO(Input(Bool()))
   val c2vMin = IO(Input(proto))
   val c2v2ndMin = IO(Input(proto))
   val prior = IO(Input(proto))
   val firstIteration = IO(Input(Bool()))
+  val en = IO(Input(Bool()))
 
   val decision = IO(Output(Bool()))
   val v2cMarg = IO(Output(proto))
 
   val accum = Reg(protoAccum)
 
-  val v2cMargPrev = RegInit(proto, init = Ring[T].zero)
 
-  val c2vMarg = Mux(c2vMin === v2cMargPrev, c2v2ndMin, c2vMin)
-  val c2vMargDelay = ShiftRegister(c2vMarg, accumCycles)
+  val v2cMargPrev = ShiftRegister(v2cMarg, 1 + pipelineStages)
 
-  accum := Mux(firstIteration,
-    prior,
-    prior + c2vMarg
-  )
+  val c2vMarg = Mux(c2vMin === v2cMargPrev.abs(), c2v2ndMin, c2vMin)
+  val sign = v2cMargPrev.sign().neg ^ c2vSign
+  val c2v_m_beta = c2vMarg - Ring[T].one
+  val correctedc2v = Mux(c2v_m_beta > Ring[T].zero, c2v_m_beta, Ring[T].zero)
+  val signedc2v = Mux(sign, -correctedc2v, correctedc2v)
+  val c2vMargDelay = ShiftRegister(signedc2v, accumCycles, en = en)
 
-  decision := accum.isSignNegative()
+  when (en) {
+    accum := Mux(firstIteration,
+      prior,
+      prior + c2vMarg
+    )
+  }
+
+  decision := accum.isSignNonNegative()
   v2cMarg := accum - c2vMargDelay
 }
 
@@ -255,9 +265,14 @@ class BPDecoder[T <: Data : Real](protoLLR: T, val params: LdpcParams) extends M
   // each entry in the Seq is a tuple with three entries:
   //  1) Vec[Vec[T]] of inputs to VNGs
   //  2) Vec[T] of outputs of VNGs
+  class BackShiftGroup extends Bundle {
+    val min1 = protoLLR.cloneType
+    val min2 = protoLLR.cloneType
+    val sign = Bool()
+  }
   val (shiftIns, shiftOuts) = (for ((group, idx) <- vng.zipWithIndex) yield {
     val mySchedule = schedule.map(_.entries(idx))
-    val backShift = Module(new Shifter(Vec(2, protoLLR), params.blockSize))
+    val backShift = Module(new Shifter(new BackShiftGroup, params.blockSize))
     val frontShift = Module(new Shifter(protoLLR, params.blockSize))
 
     require(mySchedule.map(_._1.enabled).reduce(_ && _), "Currently don't support holes in the schedule")
@@ -267,8 +282,9 @@ class BPDecoder[T <: Data : Real](protoLLR: T, val params: LdpcParams) extends M
     frontShift.shift := (params.blockSize - 1).U - shiftTable(iterCount)
 
     backShift.out.zip(group).foreach { case (i, g) =>
-      g.c2vMin := i(0)
-      g.c2v2ndMin := i(1)
+      g.c2vMin := i.min1
+      g.c2v2ndMin := i.min2
+      g.c2vSign := i.sign
     }
     frontShift.in.zip(group).foreach { case (o, g) =>
         o := g.v2cMarg
@@ -284,22 +300,19 @@ class BPDecoder[T <: Data : Real](protoLLR: T, val params: LdpcParams) extends M
     }
   }
 
-  def convertSign(sign: Bool, abs: T): T = {
-    Mux(sign, -abs, abs)
-  }
-  // check -> variable
-  val c2vs = for (block <- 0 until params.blockSize) yield {
-    val min = convertSign(checkNodes(block).c2vSign, checkNodes(block).c2vMin)
-    val min2 = convertSign(checkNodes(block).c2vSign, checkNodes(block).c2v2ndMin)
-    VecInit(min, min2)
-  }
   // connect check -> variable
   for ((sh, i) <- shiftIns.zipWithIndex) {
     val mySchedule = schedule.map(_.entries(i))
     val inputIdxs = mySchedule.map(_._2)
     val uniqueInputIdxs = inputIdxs.distinct
     val inputTable = VecInit(inputIdxs.map(i => uniqueInputIdxs.indexOf(i).U))
-    val inputs = VecInit(uniqueInputIdxs.map(i => checkNodes(i)).map(n => VecInit(n.c2vMin, n.c2v2ndMin)))
+    val inputs = VecInit(uniqueInputIdxs.map(i => checkNodes(i)).map(n => {
+      val c2v = Wire(new BackShiftGroup)
+      c2v.min1 := n.c2vMin
+      c2v.min2 := n.c2v2ndMin
+      c2v.sign := n.c2vSign
+      c2v
+    }))
      for (j <- 0 until params.blockSize) {
       sh(j) := inputs(inputTable(iterCount))
     }

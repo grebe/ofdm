@@ -3,7 +3,7 @@ package ofdm
 import breeze.math.Complex
 import chisel3._
 import chisel3.experimental.FixedPoint
-import dsptools.DspTester
+import dsptools.{DspContext, DspTester}
 import dsptools.numbers._
 import org.scalatest.{FlatSpec, Matchers}
 
@@ -87,7 +87,7 @@ object SinglePointChannelEstimatorTester {
 class FlatPilotEstimatorTester[T <: Data](dut: FlatPilotEstimator[T], out: ArrayBuffer[Seq[Complex]]) extends DspTester(dut) {
   def checkOutput(): Unit = {
     if (peek(dut.out.valid) && peek(dut.out.ready)) {
-      val outvec = dut.out.bits.map(peek(_))
+      val outvec = dut.params.pilotPos.map(i => dut.out.bits(i)).map(peek(_))
       out += outvec
       /*for () {
         val in = Complex()
@@ -108,20 +108,16 @@ class FlatPilotEstimatorTester[T <: Data](dut: FlatPilotEstimator[T], out: Array
     poke(io.real, p.real)
     poke(io.imag, p.imag)
   }
-
-  for (i <- 0 until 5) {
-    for (in <- dut.in.bits) {
-      poke(in.real, math.pow(2.0, i) * math.cos(2 * math.Pi * i.toDouble / 5))
-      poke(in.imag, math.pow(2.0, i) * math.sin(2 * math.Pi * i.toDouble / 5))
-    }
-    step(1)
-    while (!peek(dut.in.ready)) {
-      step(1)
-      checkOutput()
-    }
+  for (in <- dut.in.bits) {
+    poke(in.real, 1.0)
+    poke(in.imag, 0.0)
   }
-  // checkOutput()
-  // step(1)
+
+  step(1)
+  while (!peek(dut.in.ready)) {
+    step(1)
+    checkOutput()
+  }
   poke(dut.in.valid, 0)
   var dead_cycles = 0
   while (dead_cycles < 100) {
@@ -149,6 +145,73 @@ object FlatPilotEstimatorTester {
       Array[String]("-tbn", "treadle", "-tiwv"),
       () => new FlatPilotEstimator(p)) {
       c => new FlatPilotEstimatorTester[T](c, out)
+    }
+    out
+  }
+}
+
+class FlatPilotEqualizerTester[T <: Data](dut: FlatPilotEqualizer[T], out: ArrayBuffer[Seq[Complex]]) extends DspTester(dut) {
+  def checkOutput(): Unit = {
+    if (peek(dut.out.valid) && peek(dut.out.ready)) {
+      val outvec = dut.out.bits.map(peek(_))
+      out += outvec
+    }
+  }
+  poke(dut.out.ready, 1)
+  poke(dut.in.valid, 1)
+
+  for (in <- dut.in.bits) {
+    poke(in.real, 1.0)
+    poke(in.imag, 0.0)
+  }
+  val pilots = for (i <- 0 until dut.params.pilotPos.length) yield {
+    Complex(
+      math.cos(2.0 * math.Pi * i.toDouble / dut.params.pilotPos.length),
+      math.sin(2.0 * math.Pi * i.toDouble / dut.params.pilotPos.length)
+    )
+  }
+  for ((io, p) <- dut.params.pilotPos.map(i => dut.in.bits(i)).zip(pilots)) {
+    poke(io.real, p.real)
+    poke(io.imag, p.imag)
+  }
+
+  step(1)
+  while (!peek(dut.in.ready)) {
+    step(1)
+    checkOutput()
+  }
+  poke(dut.in.valid, 0)
+  var dead_cycles = 0
+  while (dead_cycles < 100) {
+    while(peek(dut.out.valid)) {
+      dead_cycles = 0
+      checkOutput()
+      step(1)
+    }
+    dead_cycles += 1
+    step(1)
+  }
+}
+
+object FlatPilotEqualizerTester {
+  def apply[T <: Data : RealBits](proto: T): Seq[Seq[Complex]] = {
+    val protoComplex = DspComplex(proto)
+    val p = RXParams(protoADC = protoComplex, protoAngle = proto, protoFFTIn = protoComplex, protoTwiddle = protoComplex,
+      protoLLR = proto, maxNumPeaks = 64, timeStampWidth = 64, autocorrParams = AutocorrParams(protoComplex, 1, 1),
+      ncoParams = NCOParams(10, 64, _ => proto, proto, proto), pilotPos = Seq(4, 12, 20, 28, 36, 44, 52, 60), nFFT = 64)
+
+
+    val out = ArrayBuffer[Seq[Complex]]()
+
+    DspContext.alter(DspContext.current.copy(
+      numAddPipes = 1,
+      numMulPipes = 3,
+    )) {
+      chisel3.iotesters.Driver.execute(
+        Array[String]("-tbn", "treadle", "-tiwv"),
+        () => new FlatPilotEqualizer(p)) {
+        c => new FlatPilotEqualizerTester[T](c, out)
+      }
     }
     out
   }
@@ -182,6 +245,16 @@ class ChannelEstimatorSpec extends FlatSpec with Matchers {
         "[" + _.map(_.toString.replace("i", "j")).mkString(", ") + "]").mkString(", ")
       + "])")
 
+  }
+
+  behavior of "FlatPilotEqualizer"
+
+  it should "correct channel with rotating phase" in {
+    val proto = FixedPoint(16.W, 10.BP)
+    println("out=np.array([" +
+      FlatPilotEqualizerTester(proto).map(
+        "[" + _.map(_.toString.replace("i", "j")).mkString(", ") + "]").mkString(", ")
+      + "])")
   }
 
 }

@@ -84,14 +84,14 @@ class LdpcSpec extends FlatSpec with Matchers {
   behavior of "BPDecoder"
 
   it should "decode small CCSDS (128, 64) code" in {
-    BPDecoderTester(FixedPoint(6.W, 2.BP), CCSDS.params64x128, nTrials = 500, ebn0 = 3.0) should be (true)
+    BPDecoderTester(FixedPoint(6.W, 2.BP), CCSDS.params64x128, nTrials = 2000, ebn0 = Seq(0.0, 1.0, 2.0, 3.0, 10.0)) should be (true)
   }
 
   it should "decode the medium CCSDS (256, 128) code" in {
-    BPDecoderTester(FixedPoint(6.W, 2.BP), CCSDS.params128x256, nTrials = 500, ebn0 = 3.0) should be (true)
+    BPDecoderTester(FixedPoint(6.W, 2.BP), CCSDS.params128x256, nTrials = 500, ebn0 = Seq(3.0)) should be (true)
   }
 
   it should "decode larger CCSDS (512, 256) code" in {
-    BPDecoderTester(FixedPoint(6.W, 2.BP), CCSDS.params256x512, nTrials = 500, ebn0 = 3.0) should be (true)
+    BPDecoderTester(FixedPoint(6.W, 2.BP), CCSDS.params256x512, nTrials = 500, ebn0 = Seq(3.0)) should be (true)
   }
 }

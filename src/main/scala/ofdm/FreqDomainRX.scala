@@ -2,9 +2,10 @@ package ofdm
 
 import chisel3._
 import chisel3.util.{Decoupled, Queue}
+import dsptools.DspContext
 import dsptools.numbers._
 import ldpc.{BPDecoder, CCSDS}
-import ofdm.fft.{DITDecimType, PacketDeserializer, PacketSerDesParams, SDFFFTDeserOut, SDFFFTType}
+import ofdm.fft.{DITDecimType, PacketDeserializer, PacketSerDesParams, SDFFFTType}
 
 class FreqDomainRX[T <: Data : Real : BinaryRepresentation]
 (
@@ -30,9 +31,11 @@ class FreqDomainRX[T <: Data : Real : BinaryRepresentation]
   fft.in <> in
   fftDeser.io.in <> fft.out
   // val fft = Module(new SDFFFTDeserOut(fftParams))
-  val eq = Module(new FlatPilotEstimator(params))
-  eq.in <> fftDeser.io.out
-  eq.pilots.foreach { _ := DspComplex.wire(Ring[T].one, Ring[T].zero) }
+  val est = Module(new FlatPilotEstimator(params))
+  est.in <> fftDeser.io.out
+  est.pilots.foreach { _ := DspComplex.wire(Ring[T].one, Ring[T].zero) }
+  val eq = Module(new FlatPilotEqualizer(params))
+  eq.in <> est.out
   val dataSelector = Module(new DataSelector(params))
   dataSelector.in <> eq.out
   val demod = Module(new QPSKDemod(params))
@@ -50,20 +53,23 @@ class FreqDomainRX[T <: Data : Real : BinaryRepresentation]
   deser.io.in <> demodQueue.io.deq
   val deserFlat: Seq[T] = deser.io.out.bits.flatten.flatten
 
-  val ldpc = Module(new BPDecoder(params.protoLLR, CCSDS.params128x256))
-  ldpc.in.bits.zip(deserFlat).foreach { case (l, d) =>
-      l := d
-  }
-  ldpc.in.bits.drop(deserFlat.length).foreach { case (l) =>
-    // no prior - these bits are removed
-    l := Ring[T].zero
-  }
-  ldpc.in.valid := deser.io.out.valid
-  deser.io.out.ready := ldpc.in.ready
+  out.valid := deser.io.out.valid
+  deser.io.out.ready := out.ready
+  out.bits := VecInit(deserFlat.map(_.isSignNonNegative())).asUInt
+  // val ldpc = Module(new BPDecoder(params.protoLLR, CCSDS.params128x256))
+  // ldpc.in.bits.zip(deserFlat).foreach { case (l, d) =>
+  //     l := d
+  // }
+  // ldpc.in.bits.drop(deserFlat.length).foreach { case (l) =>
+  //   // no prior - these bits are removed
+  //   l := Ring[T].zero
+  // }
+  // ldpc.in.valid := deser.io.out.valid
+  // deser.io.out.ready := ldpc.in.ready
 
-  out.valid := ldpc.out.valid
-  out.bits := ldpc.out.bits.asUInt
-  ldpc.out.ready := out.ready
+  // out.valid := ldpc.out.valid
+  // out.bits := ldpc.out.bits.asUInt
+  // ldpc.out.ready := out.ready
 
   tlastOut := false.B // TODO
 }

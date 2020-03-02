@@ -1,7 +1,8 @@
 package ofdm
 
+import breeze.numerics.sincpi
 import chisel3._
-import chisel3.util.{Decoupled, Valid, log2Ceil}
+import chisel3.util.{Decoupled, ShiftRegister, Valid, log2Ceil}
 import dsptools.DspContext
 import dsptools.numbers._
 
@@ -50,20 +51,49 @@ class PreambleChannelEqualizer[T <: Data : Ring : ConvertableTo](params: RXParam
   }
 }
 
-class FlatPilotEqualizer[T <: Data : Ring : ConvertableTo](params: RXParams[T], pilotPos: Seq[Int])
+class FlatPilotEqualizer[T <: Data : Ring : ConvertableTo](val params: RXParams[T])
 extends MultiIOModule {
-  val in = Flipped(Decoupled(Vec(params.nFFT, params.protoFFTOut)))
-  val pilots = Input(Vec(params.nFFT, Valid(params.protoFFTIn)))
-  val out = Decoupled(Vec(params.nFFT, params.protoFFTOut))
-  // val sigmaSquared = Input(params.protoFFTOut)
+  val in = IO(Flipped(Decoupled(Vec(params.nFFT, params.protoFFTOut))))
+  val out = IO(Decoupled(Vec(params.nFFT, params.protoFFTOut)))
 
-  val estimator = Module(new FlatPilotEstimator(params))
-
-  estimator.in <> in
-  estimator.pilots := pilots
-  // out <> estimator.out
-
-  for (((i, o), est) <- in.bits.zip(out.bits).zip(estimator.out.bits)) {
-    o := i * est
+  val estimates: Seq[DspComplex[T]] = for (i <- params.pilotPos) yield {
+    in.bits(i)
   }
+
+  val multWire = Wire(Vec(params.nFFT, params.protoChannelEst))
+  val complexMultLatency = DspContext.current.numMulPipes + (if (DspContext.current.complexUse4Muls) {
+    DspContext.current.numAddPipes
+  } else {
+    2 * DspContext.current.numAddPipes
+  })
+  val totalLatency = 2 * complexMultLatency
+
+  // left edge - use the first est for every subcarrier
+  for (i <- 0 until params.pilotPos.head) {
+    multWire(i) := ShiftRegister(in.bits(i) context_* estimates.head, complexMultLatency)
+  }
+  // interpolate ests for the middle subcarriers
+  for ((begin :: end :: Nil, pilotIdx) <- params.pilotPos.sliding(2).zipWithIndex) {
+    val extent = end - begin
+    val leftEst = estimates(pilotIdx)
+    val rightEst = estimates(pilotIdx + 1)
+    for (i <- 1 until extent) {
+      val leftCoeff = ConvertableTo[T].fromDoubleWithFixedWidth(sincpi(i.toDouble / extent), params.protoFFTOut.real)
+      val rightCoeff = ConvertableTo[T].fromDoubleWithFixedWidth(sincpi(1 - i.toDouble / extent), params.protoFFTOut.real)
+      val left = DspComplex.wire(leftEst.real context_* leftCoeff, leftEst.imag context_* leftCoeff)
+      val right = DspComplex.wire(rightEst.real context_* rightCoeff, rightEst.imag context_* rightCoeff)
+      multWire(i + begin) := in.bits(i + begin) context_* (left + right)
+    }
+  }
+  // right edge - use the last est for every subcarrier
+  for (i <- params.pilotPos.last + 1 until params.nFFT) {
+    multWire(i) := ShiftRegister(in.bits(i) context_* estimates.last, complexMultLatency)
+  }
+  // put zero through pilots
+  for (p <- params.pilotPos) {
+    multWire(p).real := Ring[T].zero
+    multWire(p).imag := Ring[T].zero
+  }
+
+  Skid(totalLatency, in, out) := multWire
 }

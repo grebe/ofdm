@@ -2,8 +2,8 @@
 
 // Provide a managed dependency on X if -DXVersion="" is supplied on the command line.
 val defaultVersions = Map(
-  "dsptools" -> "1.2-SNAPSHOT",
-  "rocket-dsptools" -> "1.2-SNAPSHOT",
+  "dsptools" -> "1.3-SNAPSHOT",
+  "rocket-dsptools" -> "1.3-SNAPSHOT",
   "firesim" -> "1.0"
 )
 
