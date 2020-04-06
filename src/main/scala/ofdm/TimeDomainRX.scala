@@ -52,7 +52,6 @@ class TimeDomainRX[T <: Data : Real: BinaryRepresentation](params: RXParams[T], 
   val freqMultiplier: T = IO(Input(params.protoAngle))
   val autocorrConfig   = IO(AutocorrConfigIO(params.autocorrParams))
   val peakDetectConfig = IO(SimplePeakDetectConfigIO(maxNumPeaks = params.maxNumPeaks))
-  val mutatorCommandIn = IO(Flipped(Decoupled(new MutatorCommandDescriptor(params.queueDepth))))
 
   // Status stuff
   // val streamCount = IO(Output(UInt(log2Ceil(params.queueDepth).W)))
@@ -60,6 +59,8 @@ class TimeDomainRX[T <: Data : Real: BinaryRepresentation](params: RXParams[T], 
   val freqOut = IO(Output(params.protoAngle))
   val packetDetects = IO(Decoupled(UInt(params.timeStampWidth.W)))
   val packetDetectsCount = IO(Output(UInt(params.timeStampWidth.W)))
+
+  val packetLength = IO(Input(UInt(params.timeStampWidth.W)))
 
   val globalCycleEn = IO(Input(Bool()))
   val globalCycleCounter = GlobalCycleCounter(64, "rx", enable = globalCycleEn && in.fire())
@@ -69,7 +70,7 @@ class TimeDomainRX[T <: Data : Real: BinaryRepresentation](params: RXParams[T], 
   // detect packets with simple autocorrelation-based scheme
   val autocorr   = Module(new AutocorrSimple(params.autocorrParams))
   val peakDetect = Module(new SimplePeakDetect(params.protoFFTIn, params.maxNumPeaks))
-  val mutator = Module(new StreamMutator(chiselTypeOf(in.bits), params.queueDepth, params.queueDepth))
+  val segmenter = Module(new PacketSegmenter(chiselTypeOf(in.bits), 2000)) // TODO put in params
 
   val peakDetectId = RegInit(0.U(8.W))
 
@@ -80,8 +81,8 @@ class TimeDomainRX[T <: Data : Real: BinaryRepresentation](params: RXParams[T], 
   autocorr.io.in.bits    := in.bits
 
   val peakDetected =
-    (autocorr.io.out.bits.abssq() > peakThreshold * autocorr.io.energy.bits + peakOffset) &&
-      autocorr.io.out.valid && autocorr.io.energy.valid
+    (autocorr.io.out.bits.abssq() > peakThreshold * autocorr.io.energy.bits + peakOffset)
+  // autocorr.io.out.valid && autocorr.io.energy.valid // being accounted for in peakDetect valid signal
 
   peakDetect.io.in.valid := autocorr.io.out.valid && autocorr.io.energy.valid
   peakDetect.io.in.bits.peak := peakDetected
@@ -104,11 +105,12 @@ class TimeDomainRX[T <: Data : Real: BinaryRepresentation](params: RXParams[T], 
   }
 
   packetDetectQueue.io.enq.bits := peakDetect.io.out.bits.time
-  packetDetectQueue.io.enq.valid := peakDetect.io.out.valid && mutator.currentId.valid && mutator.currentId.bits === peakDetectId
+  packetDetectQueue.io.enq.valid := peakDetect.io.out.valid
 
   when (peakDetect.io.out.fire()) {
     peakDetectId := peakDetectId +& 1.U
   }
+
   assert(!peakDetect.io.out.valid || packetDetectQueue.io.enq.ready)
   packetDetects <> packetDetectQueue.io.deq
   packetDetectsCount := packetDetectQueue.io.count
@@ -141,18 +143,16 @@ class TimeDomainRX[T <: Data : Real: BinaryRepresentation](params: RXParams[T], 
   inputQueue.io.enq.bits := in.bits
   inputQueue.io.deq.ready := nco.io.out.valid
 
-  mutator.commandIn.bits <> mutatorCommandIn.bits
-  mutator.commandIn.valid := mutatorCommandIn.valid // && peakDetect.io.out.valid
-  mutatorCommandIn.ready := mutator.commandIn.ready // && peakDetect.io.out.valid
-  mutator.packetDetect := peakDetect.io.out.fire()
-  tlast := mutator.tlast
+  tlast := segmenter.tlast
 
-  mutator.in.bits := inputQueue.io.deq.bits * nco.io.out.bits
-  mutator.in.valid := inputQueue.io.deq.valid
-  inputQueue.io.deq.ready := mutator.in.ready
+  segmenter.in.bits := inputQueue.io.deq.bits * nco.io.out.bits
+  segmenter.in.valid := inputQueue.io.deq.valid
+  segmenter.packetLength := packetLength
+  segmenter.packetDetect := peakDetect.io.out.fire()
+  inputQueue.io.deq.ready := segmenter.in.ready
 
-  out.valid := mutator.out.valid
-  mutator.out.ready := out.ready
-  out.bits.stream := mutator.out.bits
+  out.valid := segmenter.out.valid
+  segmenter.out.ready := out.ready
+  out.bits.stream := segmenter.out.bits
   out.bits.time := 0.U
 }

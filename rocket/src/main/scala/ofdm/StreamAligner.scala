@@ -37,7 +37,7 @@ class StreamAligner
     val enPrev = RegNext(en, false.B)
 
     when (streamNode.in.head._1.fire() || cntPassthrough) {
-      when(cnt === maxCountReg - 1.U) {
+      when(cnt >= maxCountReg - 1.U) {
         cnt := 0.U
       }.otherwise {
         cnt := cnt + 1.U

@@ -54,7 +54,13 @@ class AutocorrSimple[T <: Data : Ring](params: AutocorrParams[DspComplex[T]]) ex
   shr.io.in.valid    := io.in.fire()
   shr.io.in.bits     := io.in.bits
 
-  val in_fire_next = RegNext(io.in.fire())
+  val shrCount = RegInit(0.U(log2Ceil(shrMaxDepth + 1).W))
+
+  when (shr.io.out.valid && shrCount < shrMaxDepth.U) {
+    shrCount := shrCount +% 1.U
+  }
+
+  val in_fire_next = RegNext(io.in.fire()) && (shrCount >= shrMaxDepth.U)
   val in_bits_next = RegNext(io.in.bits)
 
   // correlate short and long path
@@ -68,10 +74,11 @@ class AutocorrSimple[T <: Data : Ring](params: AutocorrParams[DspComplex[T]]) ex
   sum.io.depth.valid := io.config.depthOverlap =/= RegNext(io.config.depthOverlap)
 
   // pipeline the multiply here
-  sum.io.in.bits  := ShiftRegister(prod, params.mulPipeDelay, en = io.in.fire())
-  sum.io.in.valid := ShiftRegister(in_fire_next, params.mulPipeDelay, resetData = false.B, en = io.in.fire())
+  sum.io.in.bits  := ShiftRegister(prod, params.mulPipeDelay) // , en = io.in.fire())
+  sum.io.in.valid := ShiftRegister(in_fire_next, params.mulPipeDelay, resetData = false.B, en = true.B) //, en = io.in.fire())
 
-  io.out.valid := sum.io.out.valid
+
+  io.out.valid := sum.io.out.valid && (shrCount >= shrMaxDepth.U)
   io.out.bits  := sum.io.out.bits
 
   val energySum = Module(new OverlapSum(genOut.real, maxOverlap, pipeDelay = params.addPipeDelay))
@@ -79,8 +86,8 @@ class AutocorrSimple[T <: Data : Ring](params: AutocorrParams[DspComplex[T]]) ex
   energySum.io.depth.bits  := io.config.depthOverlap
   energySum.io.depth.valid := io.config.depthOverlap =/= RegNext(io.config.depthOverlap)
 
-  energySum.io.in.bits  := ShiftRegister(shr.io.out.bits.abssq(), params.mulPipeDelay, en = io.in.fire())
-  energySum.io.in.valid := ShiftRegister(in_fire_next, params.mulPipeDelay, resetData = false.B, en = io.in.fire())
+  energySum.io.in.bits  := ShiftRegister(shr.io.out.bits.abssq(), params.mulPipeDelay) //, en = io.in.fire())
+  energySum.io.in.valid := ShiftRegister(in_fire_next, params.mulPipeDelay, resetData = false.B, en = true.B) // , en = io.in.fire())
 
   assert(energySum.io.out.valid === sum.io.out.valid, "energySum and sum valid signals should be the same")
   io.energy.valid := energySum.io.out.valid

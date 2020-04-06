@@ -17,24 +17,24 @@ class TestHarness()(implicit p: Parameters) extends MultiIOModule {
     val dut = Module(LazyModule(new Top).module)
     dut.reset := reset.asBool | dut.debug.get.ndreset.asBool
 
-    dut.dontTouchPorts()
-    dut.tieOffInterrupts()
-    dut.connectSimAXIMem()
-    dut.connectSimAXIMMIO()
-    dut.l2_frontend_bus_axi4.foreach(b => {
-      b.tieoff()
-      experimental.DataMirror.directionOf(b.ar.ready) match {
-        case ActualDirection.Input =>
-          b.r.bits  := DontCare
-          b.b.bits  := DontCare
-        case ActualDirection.Output =>
-          b.ar.bits := DontCare
-          b.aw.bits := DontCare
-          b.w.bits  := DontCare
-        case _ =>
-      }
-    })
-    Debug.connectDebug(dut.debug, dut.psd, clock, reset.toBool(), out = individual_successes(u))
+    // dut.dontTouchPorts()
+    // dut.tieOffInterrupts()
+    // dut.connectSimAXIMem()
+    // dut.connectSimAXIMMIO()
+    // dut.l2_frontend_bus_axi4.foreach(b => {
+    //   b.tieoff()
+    //   experimental.DataMirror.directionOf(b.ar.ready) match {
+    //     case ActualDirection.Input =>
+    //       b.r.bits  := DontCare
+    //       b.b.bits  := DontCare
+    //     case ActualDirection.Output =>
+    //       b.ar.bits := DontCare
+    //       b.aw.bits := DontCare
+    //       b.w.bits  := DontCare
+    //     case _ =>
+    //   }
+    // })
+    // Debug.connectDebug(dut.debug, dut.psd, clock, reset.toBool(), out = individual_successes(u))
 
     dut
   }

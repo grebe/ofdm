@@ -18,7 +18,12 @@ class OverlapSum[T <: Data : Ring](val gen: T, val maxDepth: Int, val pipeDelay:
     depth := io.depth.bits
   }
 
-  val shr                                                = Reg(Vec(maxDepth - 1, gen.cloneType))
+  val filledIdx = RegInit(0.U(log2Ceil(maxDepth + 1).W))
+  when (io.in.valid && filledIdx < maxDepth.U) {
+    filledIdx := filledIdx +% 1.U
+  }
+
+  val shr = Reg(Vec(maxDepth - 1, gen.cloneType))
   val shrSelected: IndexedSeq[T] = shr.zipWithIndex.map { case (reg, idx) =>
     val included: Bool = (idx + 1).U < depth
     Mux(included, reg, 0.U.asTypeOf(reg)) //Ring[T].zero) //0.U.asTypeOf(reg))
@@ -27,7 +32,7 @@ class OverlapSum[T <: Data : Ring](val gen: T, val maxDepth: Int, val pipeDelay:
   val sum: T = // (Seq(io.in.bits) ++ shrSelected).reduce(_ + _)
     TreeReduce(Seq(io.in.bits) ++ shrSelected, (x:T,y:T) => x + y)
   io.out.bits := ShiftRegister(sum, pipeDelay)
-  io.out.valid := ShiftRegister(io.in.fire(), pipeDelay, false.B, true.B)
+  io.out.valid := ShiftRegister(io.in.fire() && filledIdx >= depth, pipeDelay, resetData = false.B, en = true.B)
 
   shr.scanLeft(io.in.bits) { case (in, out) =>
     when (io.in.fire()) {

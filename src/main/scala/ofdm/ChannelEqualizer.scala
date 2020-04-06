@@ -61,33 +61,35 @@ extends MultiIOModule {
   }
 
   val multWire = Wire(Vec(params.nFFT, params.protoChannelEst))
-  val complexMultLatency = DspContext.current.numMulPipes + (if (DspContext.current.complexUse4Muls) {
-    DspContext.current.numAddPipes
+  val addLatency = DspContext.current.numAddPipes
+  val realMultLatency = DspContext.current.numMulPipes
+  val complexMultLatency = realMultLatency + (if (DspContext.current.complexUse4Muls) {
+    addLatency
   } else {
-    2 * DspContext.current.numAddPipes
+    2 * addLatency
   })
-  val totalLatency = 2 * complexMultLatency
+  val totalLatency = complexMultLatency + realMultLatency + addLatency
 
   // left edge - use the first est for every subcarrier
   for (i <- 0 until params.pilotPos.head) {
-    multWire(i) := ShiftRegister(in.bits(i) context_* estimates.head, complexMultLatency)
+    multWire(i) := ShiftRegister(in.bits(i) context_* estimates.head, totalLatency - complexMultLatency)
   }
   // interpolate ests for the middle subcarriers
   for ((begin :: end :: Nil, pilotIdx) <- params.pilotPos.sliding(2).zipWithIndex) {
     val extent = end - begin
-    val leftEst = estimates(pilotIdx)
-    val rightEst = estimates(pilotIdx + 1)
+    val leftEst = in.bits(begin) // estimates(pilotIdx)
+    val rightEst = in.bits(end) // estimates(pilotIdx + 1)
     for (i <- 1 until extent) {
       val leftCoeff = ConvertableTo[T].fromDoubleWithFixedWidth(sincpi(i.toDouble / extent), params.protoFFTOut.real)
       val rightCoeff = ConvertableTo[T].fromDoubleWithFixedWidth(sincpi(1 - i.toDouble / extent), params.protoFFTOut.real)
       val left = DspComplex.wire(leftEst.real context_* leftCoeff, leftEst.imag context_* leftCoeff)
       val right = DspComplex.wire(rightEst.real context_* rightCoeff, rightEst.imag context_* rightCoeff)
-      multWire(i + begin) := in.bits(i + begin) context_* (left + right)
+      multWire(begin + i) := ShiftRegister(in.bits(begin + i), realMultLatency + addLatency) context_* (left context_+ right)
     }
   }
   // right edge - use the last est for every subcarrier
   for (i <- params.pilotPos.last + 1 until params.nFFT) {
-    multWire(i) := ShiftRegister(in.bits(i) context_* estimates.last, complexMultLatency)
+    multWire(i) := ShiftRegister(in.bits(i) context_* estimates.last, totalLatency - complexMultLatency)
   }
   // put zero through pilots
   for (p <- params.pilotPos) {

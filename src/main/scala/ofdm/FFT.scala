@@ -334,7 +334,7 @@ extends MultiIOModule {
   //   initialOutCnt := initialOutCnt +% 1.U
   // }
   // when (initialOutCnt === initialDelay.U) {
-  printf("outCnt = %d\n", outCnt)
+  // printf("outCnt = %d\n", outCnt)
   when (cnt === (initialDelay - 1).U) {
     initialInDone := true.B
   }

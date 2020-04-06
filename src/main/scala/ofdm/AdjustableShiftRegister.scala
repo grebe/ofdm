@@ -12,7 +12,7 @@ object AdjustableShiftRegister {
     val adjustableShiftRegister = Module(new chisel3.util.Queue(chiselTypeOf(in), entries = maxDepth, pipe = true, flow = true))
 
     adjustableShiftRegister.io.enq.bits := in
-    adjustableShiftRegister.io.enq.valid := adjustableShiftRegister.io.count <= depth && en
+    adjustableShiftRegister.io.enq.valid := adjustableShiftRegister.io.count < depth && en
     adjustableShiftRegister.io.deq.ready := adjustableShiftRegister.io.count >= depth && en
 
     Mux(adjustableShiftRegister.io.deq.fire(), adjustableShiftRegister.io.deq.bits, resetData)

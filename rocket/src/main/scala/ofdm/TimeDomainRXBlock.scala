@@ -5,7 +5,7 @@ import chisel3.util.{Decoupled, DecoupledIO, log2Ceil}
 import dspblocks.{AXI4HasCSR, DspBlock, HasCSR, TLHasCSR}
 import dsptools.numbers._
 import freechips.rocketchip.amba.axi4.{AXI4Bundle, AXI4EdgeParameters, AXI4MasterPortParameters, AXI4RegisterNode, AXI4SlavePortParameters}
-import freechips.rocketchip.amba.axi4stream.AXI4StreamIdentityNode
+import freechips.rocketchip.amba.axi4stream.{AXI4StreamAdapterNode, AXI4StreamIdentityNode, AXI4StreamMasterPortParameters, AXI4StreamSlavePortParameters}
 import freechips.rocketchip.config._
 import freechips.rocketchip.diplomacy._
 import freechips.rocketchip.interrupts.{IntRange, IntSourceNode, IntSourceParameters, IntSourcePortParameters}
@@ -15,15 +15,17 @@ import freechips.rocketchip.tilelink.{TLBundle, TLClientPortParameters, TLEdgeIn
 abstract class TimeDomainRXBlock[T <: Data : Real: BinaryRepresentation, D, U, E, O, B <: Data](params: RXParams[T])
   extends LazyModule()(Parameters.empty) with DspBlock[D, U, E, O, B] with HasCSR {
   override val streamNode = AXI4StreamIdentityNode()
+  // override val streamNode = AXI4StreamAdapterNode(
+  //   masterFn = {mp: AXI4StreamMasterPortParameters => mp.copy(masters = mp.masters.map(m => m.copy(n = m.n + 4)))},
+  //   slaveFn = {sp: AXI4StreamSlavePortParameters => sp}
+  // )
   val intnode = IntSourceNode(Seq(IntSourcePortParameters(Seq(IntSourceParameters(IntRange(0, 1))))))
-  val schedule = BundleBridgeSource[DecoupledIO[SchedulingDescriptor]](() => Decoupled(new SchedulingDescriptor(32, 1)))
+  // val schedule = BundleBridgeSource[DecoupledIO[SchedulingDescriptor]](() => Decoupled(new SchedulingDescriptor(32, 1)))
 
   def beatBytes: Int
 
   lazy val module = new LazyModuleImp(this) {
     val rx = Module(new TimeDomainRX(params))
-    rx.mutatorCommandIn.valid := false.B
-    rx.mutatorCommandIn.bits := DontCare // TODO
 
     val (in, inP) = streamNode.in.head
     val (out, outP) = streamNode.out.head
@@ -47,6 +49,7 @@ abstract class TimeDomainRXBlock[T <: Data : Real: BinaryRepresentation, D, U, E
     val autocorrDepthOverlap = RegInit(0.U(autocorrFieldWidth.W))
     val peakDetectNumPeaks = RegInit(0.U(peakDetectFieldWidth.W))
     val peakDetectPeakDistance = RegInit(0.U(peakDetectFieldWidth.W))
+    val packetLength = RegInit(0.U(peakDetectFieldWidth.W))
     val globalCycleEn = RegInit(false.B)
 
     // connect registers to controls
@@ -58,6 +61,7 @@ abstract class TimeDomainRXBlock[T <: Data : Real: BinaryRepresentation, D, U, E
     rx.autocorrConfig.depthOverlap := autocorrDepthOverlap
     rx.peakDetectConfig.numPeaks := peakDetectNumPeaks
     rx.peakDetectConfig.peakDistance := peakDetectPeakDistance
+    rx.packetLength := packetLength
     rx.globalCycleEn := globalCycleEn
 
     // connect input
@@ -68,7 +72,7 @@ abstract class TimeDomainRXBlock[T <: Data : Real: BinaryRepresentation, D, U, E
     // connect output
     out.valid := rx.out.valid
     rx.out.ready := out.ready
-    out.bits.data := rx.out.bits.asUInt
+    out.bits.data := rx.out.bits.stream.asUInt
     out.bits.last := rx.tlast
     out.bits.id := 0.U
     out.bits.dest := 0.U
@@ -93,6 +97,8 @@ abstract class TimeDomainRXBlock[T <: Data : Real: BinaryRepresentation, D, U, E
           desc = "number of peaks to find in window of size peak distance for a packet to be detected")),
       RegField(peakDetectFieldWidth, peakDetectPeakDistance,
         RegFieldDesc(name = "peakDetectPeakDistance", desc = "size of window to consider fo packet detect")),
+      RegField(peakDetectFieldWidth, packetLength,
+        RegFieldDesc(name = "packetLength", desc = "Length of a detected packet")),
       RegField(1, globalCycleEn,
         RegFieldDesc(name = "globalCycleEn", desc = "Enable for global cycle counter")),
 
@@ -118,10 +124,10 @@ abstract class TimeDomainRXBlock[T <: Data : Real: BinaryRepresentation, D, U, E
     // connect interrupts
     intnode.out.head._1 := VecInit(rx.packetDetects.valid)
 
-    schedule.out.head._1.valid := rx.packetDetects.valid
-    schedule.out.head._1.bits.relative := true.B
-    schedule.out.head._1.bits.tl.time := 200.U
-    schedule.out.head._1.bits.tl.length := 100.U
+    // schedule.out.head._1.valid := rx.packetDetects.valid
+    // schedule.out.head._1.bits.relative := true.B
+    // schedule.out.head._1.bits.tl.time := 200.U
+    // schedule.out.head._1.bits.tl.length := 100.U
   }
 }
 

@@ -37,7 +37,7 @@ class NCO[T <: Data : Real : BinaryRepresentation](params: NCOParams[T]) extends
   val io = IO(new NCOIO(params))
 
 
-  val phaseCounter = Reg(UInt(params.phaseWidth.W))
+  val phaseCounter = RegInit(0.U(params.phaseWidth.W))
   val phaseConverter = Module(new NCOTable(params.tableParams))
 
   when (io.en) {

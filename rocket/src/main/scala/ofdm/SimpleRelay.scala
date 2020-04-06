@@ -24,18 +24,18 @@ class AXI4SimpleRelay[T <: Data : Real : BinaryRepresentation](rxParams: RXParam
   val aligner = sStreamIsland { LazyModule(new StreamAligner(addressSet = AddressSet(baseAddress + 0x200, 0xFF))) }
   val xbar = sAxiIsland { AXI4Xbar() }
 
-  val scheduler = sAxiIsland { LazyModule(new AXI4_StreamScheduler(
-    AddressSet(baseAddress + 0x300, 0xFF),
-    beatBytes = 4,
-    counterOpt = Some(rx.module.rx.globalCycleCounter)
-  )) }
+  // val scheduler = sAxiIsland { LazyModule(new AXI4_StreamScheduler(
+  //   AddressSet(baseAddress + 0x300, 0xFF),
+  //   beatBytes = 4,
+  //   counterOpt = Some(rx.module.rx.globalCycleCounter)
+  // )) }
 
   sAxiIsland {
     rx.mem.get := xbar
     dma.axiSlaveNode := xbar
     aligner.axiNode := xbar
-    scheduler.mem.get := xbar
-    scheduler.hardCoded := rx.schedule
+    // scheduler.mem.get := xbar
+    // scheduler.hardCoded := rx.schedule
   }
 
   lazy val module = new LazyModuleImp(this)

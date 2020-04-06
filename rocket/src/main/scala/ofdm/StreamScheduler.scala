@@ -62,7 +62,7 @@ abstract class StreamScheduler[D, U, EO, EI, B <: Data](beatBytes: Int, counterO
       in.ready := out.ready && go
       when (go) {
         out.bits := in.bits
-        out.valid := true.B
+        out.valid := in.valid
       }
       when (in.fire()) {
         streamCounter := streamCounter + 1.U
