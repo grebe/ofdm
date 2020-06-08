@@ -61,6 +61,7 @@ class TimeDomainRX[T <: Data : Real: BinaryRepresentation](params: RXParams[T], 
   val packetDetectsCount = IO(Output(UInt(params.timeStampWidth.W)))
 
   val packetLength = IO(Input(UInt(params.timeStampWidth.W)))
+  val samplesToDrop = IO(Input(UInt(params.timeStampWidth.W)))
 
   val globalCycleEn = IO(Input(Bool()))
   val globalCycleCounter = GlobalCycleCounter(64, "rx", enable = globalCycleEn && in.fire())
@@ -71,6 +72,7 @@ class TimeDomainRX[T <: Data : Real: BinaryRepresentation](params: RXParams[T], 
   val autocorr   = Module(new AutocorrSimple(params.autocorrParams))
   val peakDetect = Module(new SimplePeakDetect(params.protoFFTIn, params.maxNumPeaks))
   val segmenter = Module(new PacketSegmenter(chiselTypeOf(in.bits), 2000)) // TODO put in params
+  val cpRemover = Module(new CPRemover(chiselTypeOf(in.bits), cpSize = 10, nFFT = params.nFFT))
 
   val peakDetectId = RegInit(0.U(8.W))
 
@@ -84,10 +86,11 @@ class TimeDomainRX[T <: Data : Real: BinaryRepresentation](params: RXParams[T], 
     (autocorr.io.out.bits.abssq() > peakThreshold * autocorr.io.energy.bits + peakOffset)
   // autocorr.io.out.valid && autocorr.io.energy.valid // being accounted for in peakDetect valid signal
 
-  peakDetect.io.in.valid := autocorr.io.out.valid && autocorr.io.energy.valid
-  peakDetect.io.in.bits.peak := peakDetected
-  peakDetect.io.in.bits.data := autocorr.io.out.bits
-  peakDetect.io.in.bits.time := globalCycleCounter()
+  peakDetect.io.in.valid := ShiftRegister(autocorr.io.out.valid && autocorr.io.energy.valid, 3,
+    resetData = false.B, en = true.B)
+  peakDetect.io.in.bits.peak := ShiftRegister(peakDetected, 3)
+  peakDetect.io.in.bits.data := ShiftRegister(autocorr.io.out.bits, 3)
+  peakDetect.io.in.bits.time := ShiftRegister(globalCycleCounter(), 3)
 
   val zero = Wire(DspComplex(Ring[T].zero, Ring[T].zero))
   zero.real := Ring[T].zero
@@ -105,7 +108,7 @@ class TimeDomainRX[T <: Data : Real: BinaryRepresentation](params: RXParams[T], 
   }
 
   packetDetectQueue.io.enq.bits := peakDetect.io.out.bits.time
-  packetDetectQueue.io.enq.valid := peakDetect.io.out.valid
+  packetDetectQueue.io.enq.valid := peakDetect.io.out.valid && false.B
 
   when (peakDetect.io.out.fire()) {
     peakDetectId := peakDetectId +& 1.U
@@ -143,16 +146,19 @@ class TimeDomainRX[T <: Data : Real: BinaryRepresentation](params: RXParams[T], 
   inputQueue.io.enq.bits := in.bits
   inputQueue.io.deq.ready := nco.io.out.valid
 
-  tlast := segmenter.tlast
-
   segmenter.in.bits := inputQueue.io.deq.bits * nco.io.out.bits
   segmenter.in.valid := inputQueue.io.deq.valid
   segmenter.packetLength := packetLength
+  segmenter.samplesToDrop := samplesToDrop
   segmenter.packetDetect := peakDetect.io.out.fire()
   inputQueue.io.deq.ready := segmenter.in.ready
 
-  out.valid := segmenter.out.valid
-  segmenter.out.ready := out.ready
-  out.bits.stream := segmenter.out.bits
+  cpRemover.in <> segmenter.out
+  cpRemover.tlastIn := segmenter.tlast
+
+  out.valid := cpRemover.out.valid
+  cpRemover.out.ready := out.ready
+  out.bits.stream := cpRemover.out.bits
+  tlast := cpRemover.tlastOut
   out.bits.time := 0.U
 }
