@@ -68,7 +68,7 @@ class AutocorrSimple[T <: Data : Ring](params: AutocorrParams[DspComplex[T]]) ex
   val prod   = in_bits_next * toMult
 
   // sliding window
-  val sum = Module(new OverlapSum(genOut, maxOverlap, pipeDelay = params.addPipeDelay))
+  val sum = Module(new OverlapSum(genOut, maxOverlap, pipeDelay = params.addPipeDelay * log2Ceil(maxOverlap)))
 
   sum.io.depth.bits  := io.config.depthOverlap
   sum.io.depth.valid := io.config.depthOverlap =/= RegNext(io.config.depthOverlap)
@@ -81,7 +81,7 @@ class AutocorrSimple[T <: Data : Ring](params: AutocorrParams[DspComplex[T]]) ex
   io.out.valid := sum.io.out.valid && (shrCount >= shrMaxDepth.U)
   io.out.bits  := sum.io.out.bits
 
-  val energySum = Module(new OverlapSum(genOut.real, maxOverlap, pipeDelay = params.addPipeDelay))
+  val energySum = Module(new OverlapSum(genOut.real, maxOverlap, pipeDelay = params.addPipeDelay * log2Ceil(maxOverlap)))
 
   energySum.io.depth.bits  := io.config.depthOverlap
   energySum.io.depth.valid := io.config.depthOverlap =/= RegNext(io.config.depthOverlap)
@@ -96,7 +96,7 @@ class AutocorrSimple[T <: Data : Ring](params: AutocorrParams[DspComplex[T]]) ex
   /**
     * Total delay in cycles from @io.in to @io.out and @io.energy
     */
-  val totalDelay = params.mulPipeDelay + params.addPipeDelay + 1
+  val totalDelay = params.mulPipeDelay + params.addPipeDelay * log2Ceil(maxOverlap) + 1
 }
 
 object BuildSampleAutocorr {

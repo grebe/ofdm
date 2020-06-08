@@ -32,24 +32,10 @@ class SyncSpec extends FlatSpec with Matchers {
             poke(c.autocorrConfig.depthOverlap, 64)
             poke(c.peakDetectConfig.numPeaks, 70)
             poke(c.peakDetectConfig.peakDistance, 160)
-            poke(c.mutatorCommandIn.bits.length, 200)
             poke(c.peakThreshold, 0.5)
             poke(c.peakOffset, 0.0005)
 
-            poke(c.mutatorCommandIn.bits.`type`, 2)
-            poke(c.mutatorCommandIn.bits.length, 100)
-            poke(c.mutatorCommandIn.bits.last, 1)
-            poke(c.mutatorCommandIn.bits.id, 0)
-            poke(c.mutatorCommandIn.valid, 1)
-
             poke(c.packetDetects.ready, 1)
-
-            step(1)
-            poke(c.mutatorCommandIn.bits.`type`, 1)
-            step(1)
-            poke(c.mutatorCommandIn.valid, 0)
-            // poke(c.peakDetectConfig.numPeaks.valid, 0)
-
           }
         }
         poke(c.globalCycleEn, 1)

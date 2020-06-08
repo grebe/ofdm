@@ -43,6 +43,7 @@ class ShiftRegisterTester(c: ShiftRegisterMem[UInt], depth: Int) extends PeekPok
   // println(s"validOuts = ${validOuts.drop(depth)}")
 
   validOuts.drop(depth).zip(validIns).zipWithIndex.foreach { case ((out, in), idx) =>
-      require(out == in, s"Output $idx incorrect: got $out, should be $in")
+    // println(s"Output $idx: got $out, should be $in")
+    require(out == in, s"Output $idx incorrect: got $out, should be $in")
   }
 }

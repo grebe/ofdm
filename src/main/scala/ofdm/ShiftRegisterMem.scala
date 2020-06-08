@@ -21,12 +21,12 @@ class ShiftRegisterMem[T <: Data](val gen: T, val maxDepth: Int) extends Module 
 
   when (io.depth.valid) {
     val diff = writeIdx - io.depth.bits
-    when (diff >= 0.U) {
-      readIdx := diff
-    }   .otherwise {
-      readIdx := maxDepth.U - diff
+    when (writeIdx >= io.depth.bits) {
+      readIdx := writeIdx - io.depth.bits
+    } .otherwise {
+      readIdx := maxDepth.U + writeIdx - io.depth.bits
     }
-  }   .otherwise {
+  } .otherwise {
     readIdx := readIdxReg
   }
 

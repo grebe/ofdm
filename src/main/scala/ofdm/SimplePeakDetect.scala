@@ -30,13 +30,19 @@ class SimplePeakDetectIO[T <: Data](proto: T, maxNumPeaks: Int) extends Bundle {
 /**
   * Check that number of correlation peaks (determined by io.in.bits.peak) is > numPeaks
   * and that the time between the peaks (determined by io.in.bits.time) is < peakDistance
-  * @param w
+  * @param proto
   * @param maxNumPeaks
   */
 class SimplePeakDetect[T <: Data](val proto: T, val maxNumPeaks: Int) extends Module {
   val io = IO(new SimplePeakDetectIO(proto, maxNumPeaks))
 
-  val peakCnt = RegInit(0.U(log2Ceil(maxNumPeaks + 1).W))
+  val peakSum = Module(new OverlapSum(UInt(log2Ceil(maxNumPeaks + 1).W), maxNumPeaks))
+  peakSum.io.in.bits := io.in.bits.peak
+  peakSum.io.in.valid := io.in.fire()
+  peakSum.io.depth.bits := io.config.peakDistance
+  peakSum.io.depth.valid := io.config.peakDistance =/= RegNext(io.config.peakDistance)
+
+  // val peakCnt = RegInit(0.U(log2Ceil(maxNumPeaks + 1).W))
 
   val peak: SimplePeak[T] = AdjustableShiftRegister(
     in = io.in.bits,
@@ -49,16 +55,17 @@ class SimplePeakDetect[T <: Data](val proto: T, val maxNumPeaks: Int) extends Mo
   val peakOut = io.in.valid && peak.peak
   val peakIn = io.in.valid && io.in.bits.peak
 
-  when (peakIn && !peakOut) {
-    peakCnt := Mux(peakCnt === (maxNumPeaks - 1).U, peakCnt, peakCnt + 1.U)
-  } .elsewhen (!peakIn && peakOut) {
-    peakCnt := Mux(peakCnt === 0.U, peakCnt, peakCnt - 1.U)
-  }
+  // when (peakIn && !peakOut) {
+  //   peakCnt := Mux(peakCnt === (maxNumPeaks - 1).U, peakCnt, peakCnt + 1.U)
+  // } .elsewhen (!peakIn && peakOut) {
+  //   peakCnt := Mux(peakCnt === 0.U, peakCnt, peakCnt - 1.U)
+  // }
 
-  when (io.out.valid) {
-    peakCnt := 0.U // start over after a packet detect
-  }
+  // when (io.out.valid) {
+  //   peakCnt := 0.U // start over after a packet detect
+  // }
 
   io.out.bits  := peak
-  io.out.valid := io.in.valid && peakCnt >= io.config.numPeaks
+  io.out.valid := peakSum.io.out.valid && (peakSum.io.out.bits > io.config.numPeaks)
+  // io.out.valid := io.in.valid && peakCnt >= io.config.numPeaks
 }

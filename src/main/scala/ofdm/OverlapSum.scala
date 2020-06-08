@@ -23,21 +23,29 @@ class OverlapSum[T <: Data : Ring](val gen: T, val maxDepth: Int, val pipeDelay:
     filledIdx := filledIdx +% 1.U
   }
 
-  val shr = Reg(Vec(maxDepth - 1, gen.cloneType))
-  val shrSelected: IndexedSeq[T] = shr.zipWithIndex.map { case (reg, idx) =>
-    val included: Bool = (idx + 1).U < depth
-    Mux(included, reg, 0.U.asTypeOf(reg)) //Ring[T].zero) //0.U.asTypeOf(reg))
-  }
+  val shr = ShiftRegisterMem(io.in, maxDepth, io.depth)
+  val inDelayed = RegNext(io.in.bits)
+  val filled = filledIdx >= depth - 1.U
+  val filledDelayed = RegNext(filled)
 
-  val sum: T = // (Seq(io.in.bits) ++ shrSelected).reduce(_ + _)
-    TreeReduce(Seq(io.in.bits) ++ shrSelected, (x:T,y:T) => x + y)
-  io.out.bits := ShiftRegister(sum, pipeDelay)
-  io.out.valid := ShiftRegister(io.in.fire() && filledIdx >= depth, pipeDelay, resetData = false.B, en = true.B)
-
-  shr.scanLeft(io.in.bits) { case (in, out) =>
-    when (io.in.fire()) {
-      out := in
+  val sum = Reg((io.in.bits * log2Ceil(maxDepth)).cloneType)
+  when (shr.valid) {
+    assert(RegNext(io.in.valid))
+    when (filledDelayed) {
+      sum := sum + inDelayed - shr.bits
+    } .otherwise {
+      sum := sum + inDelayed
     }
-    out
   }
+
+  // restart when depth is changed
+  when (io.depth.valid) {
+    // TODO, this should perhaps use typeclasses, 0 is not always the additive identity
+    sum := 0.U.asTypeOf(sum)
+    filledIdx := 0.U
+    filledDelayed := false.B // takes an extra cycle to be reset otherwise
+  }
+
+  io.out.bits := sum // ShiftRegister(sum, pipeDelay)
+  io.out.valid := RegNext(shr.fire() && filledDelayed, init=false.B) // ShiftRegister(io.in.fire() && filledIdx >= depth, pipeDelay, resetData = false.B, en = true.B)
 }
