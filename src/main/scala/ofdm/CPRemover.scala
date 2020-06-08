@@ -1,0 +1,5 @@
+package ofdm
+
+class CPRemover {
+
+}
