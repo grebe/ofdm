@@ -14,21 +14,27 @@ class PacketSegmenter[T <: Data](proto: T, maxPacketLen: Int) extends MultiIOMod
 
   val packetLength = IO(Input(UInt(packetWidth.W)))
   val packetDetect = IO(Input(Bool()))
+  val samplesToDrop = IO(Input(UInt(packetWidth.W)))
 
   val cnt = RegInit(0.U(packetWidth.W))
-  val counting = cnt > 0.U || packetDetect
+  val counting = RegInit(false.B)
+
+  when (packetDetect) {
+    counting := true.B
+  }
 
   out.bits := in.bits
-  out.valid := in.valid && counting
+  out.valid := in.valid && counting && (cnt >= samplesToDrop)
   in.ready := out.ready || !counting
 
-  when (counting) {
+  when (counting && in.fire()) {
     cnt := cnt +% 1.U
   }
   tlast := false.B
   when (cnt === packetLength - 1.U) {
     cnt := 0.U
     tlast := true.B
+    counting := false.B
   }
 
 }
