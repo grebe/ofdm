@@ -185,7 +185,7 @@ class BF2I[T <: Data : Ring](proto: T, delay: Int) extends MultiIOModule {
     // passthrough, swap
     feedbackIn.bits := in
   }
-  when (ShiftRegister(sel, DspContext.current.numAddPipes, resetData = false.B, en = true.B)) {
+  when (ShiftRegister(sel, DspContext.current.numAddPipes)) { //, resetData = false.B, en = true.B)) {
     out := feedback context_+ in
   }.otherwise {
     out := ShiftRegister(feedback, DspContext.current.numAddPipes)
@@ -213,13 +213,13 @@ class BF2II[T <: Data : Ring](proto: T, delay: Int) extends MultiIOModule {
     ShiftRegister(feedbackIn.bits, delay, en = feedbackIn.valid)
   }
 
-  feedbackIn.valid := ShiftRegister(en, DspContext.current.numAddPipes, resetData = false.B, en = true.B)
+  feedbackIn.valid := en // ShiftRegister(en, DspContext.current.numAddPipes, resetData = false.B, en = true.B)
   when (sel) {
     feedbackIn.bits := inTwiddled - feedback
   } .otherwise {
     feedbackIn.bits := inTwiddled
   }
-  when (ShiftRegister(sel, DspContext.current.numAddPipes, resetData = false.B, en = true.B)) {
+  when (ShiftRegister(sel, DspContext.current.numAddPipes)) { //, resetData = false.B, en = true.B)) {
     out := feedback context_+ inTwiddled
   }.otherwise {
     out := ShiftRegister(feedback, DspContext.current.numAddPipes)
