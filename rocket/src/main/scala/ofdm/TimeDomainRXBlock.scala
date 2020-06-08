@@ -50,6 +50,7 @@ abstract class TimeDomainRXBlock[T <: Data : Real: BinaryRepresentation, D, U, E
     val peakDetectNumPeaks = RegInit(0.U(peakDetectFieldWidth.W))
     val peakDetectPeakDistance = RegInit(0.U(peakDetectFieldWidth.W))
     val packetLength = RegInit(0.U(peakDetectFieldWidth.W))
+    val samplesToDrop = RegInit(0.U(32.W))
     val globalCycleEn = RegInit(false.B)
 
     // connect registers to controls
@@ -62,6 +63,7 @@ abstract class TimeDomainRXBlock[T <: Data : Real: BinaryRepresentation, D, U, E
     rx.peakDetectConfig.numPeaks := peakDetectNumPeaks
     rx.peakDetectConfig.peakDistance := peakDetectPeakDistance
     rx.packetLength := packetLength
+    rx.samplesToDrop := samplesToDrop
     rx.globalCycleEn := globalCycleEn
 
     // connect input
@@ -99,6 +101,8 @@ abstract class TimeDomainRXBlock[T <: Data : Real: BinaryRepresentation, D, U, E
         RegFieldDesc(name = "peakDetectPeakDistance", desc = "size of window to consider fo packet detect")),
       RegField(peakDetectFieldWidth, packetLength,
         RegFieldDesc(name = "packetLength", desc = "Length of a detected packet")),
+      RegField(32, samplesToDrop,
+        RegFieldDesc(name = "samplesToDrop", desc = "Number of initial samples to drop in a detected packet")),
       RegField(1, globalCycleEn,
         RegFieldDesc(name = "globalCycleEn", desc = "Enable for global cycle counter")),
 
