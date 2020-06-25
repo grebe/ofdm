@@ -29,7 +29,8 @@ val commonSettings = Seq(
     "-Ywarn-unused:locals"
   ),
   // scalacOptions ++= scalacOptions(scalaVersion.value),
-  javacOptions ++= javacOptionsVersion(scalaVersion.value)
+  javacOptions ++= javacOptionsVersion(scalaVersion.value),
+  addCompilerPlugin("org.scalamacros" % "paradise" % "2.1.1" cross CrossVersion.full),
 )
 
 val ofdmSettings = Seq(
