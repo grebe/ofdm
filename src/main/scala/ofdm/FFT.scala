@@ -267,7 +267,7 @@ class SDFInputManager[T <: Data](val n: Int, val proto: T) extends MultiIOModule
   val last = RegInit(false.B)
 
   out <> in
-  out_last := in_last
+  out_last := in_last && !last
   when (out.fire()) {
     cnt := cnt +% 1.U
   }
@@ -305,33 +305,40 @@ class SDFOutputManager[T <: Data](val n: Int, val proto: T) extends MultiIOModul
 
   val state = RegInit(State.sDrop)
   val cnt = RegInit(n.U)
+  var drop = WireInit(false.B)
 
-  when (in.fire()) {
+  when (in.fire() && cnt > 0.U) {
     cnt := cnt -% 1.U
   }
 
-  // unless state is sDrop, pass through
+
+  // unless we are dropping, pass through
   out <> in
+  when (drop) {
+    in.ready := true.B
+    out.valid := false.B
+  }
   out_last := false.B
 
   when (state === State.sLast) {
-    when (cnt === 0.U) {
+    when (in.fire() && cnt === 0.U) {
       cnt := n.U
       state := State.sDrop
       out_last := true.B
     }
   }.elsewhen (state === State.sDrop) {
-    in.ready := true.B
-    out.valid := false.B
-    when (cnt === 0.U) {
+    drop := true.B
+    when (in.fire() && cnt === 0.U) {
       state := State.sPass
     }
   } .elsewhen (state === State.sPass) {
     // stay in here until you see in_last
   }
 
-  when (in.fire() && in_last) {
+  when (in.valid && in_last) {
+    drop := false.B
     state := State.sLast
+    cnt := n.U
   }
 }
 

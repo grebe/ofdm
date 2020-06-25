@@ -300,17 +300,21 @@ class R22SDFSpec extends FlatSpec with Matchers {
   val proto = FixedPoint(32.W, 24.BP)
   val protoTwiddle = FixedPoint(32.W, 30.BP)
 
-  it should "work for n = 4" in {
-    DspContext.alter(DspContext.current.copy(
-      numAddPipes = 1,
-      numMulPipes = 3,
-    )) {
-      R22SDFTester(4, proto, proto, proto, freq=2) should be(true)
+  for (freq <- 0 until 4) {
+    it should s"work for n = 4 with freq = $freq" in {
+      DspContext.alter(DspContext.current.copy(
+        numAddPipes = 1,
+        numMulPipes = 3,
+      )) {
+        R22SDFTester(4, proto, proto, proto, freq=freq) should be(true)
+      }
     }
   }
 
   for (freq <- 0 until 16) {
-    it should s"work for n = 16 with freq=$freq" in {
+  // val freq = 13
+     it should s"work for n = 16 with freq=$freq" in {
+//  it should "work for n = 16" in {
       DspContext.alter(DspContext.current.copy(
         numAddPipes = 1,
         numMulPipes = 3,
@@ -320,11 +324,11 @@ class R22SDFSpec extends FlatSpec with Matchers {
     }
   }
 
-  it should "work for n = 64" in {
-    for (freq <- 2 until 3) {
+  for (freq <- 0 until 5) {
+    it should s"work for n = 64 with freq = $freq" in {
       DspContext.alter(DspContext.current.copy(
-        numAddPipes = 0,
-        numMulPipes = 0,
+        numAddPipes = 1,
+        numMulPipes = 3,
       )) {
         R22SDFTester(64, proto, proto, protoTwiddle = protoTwiddle, freq = freq) should be(true)
       }
