@@ -4,7 +4,7 @@ import chisel3._
 import chisel3.util._
 import dsptools.numbers._
 
-class OverlapSum[T <: Data : Ring](val gen: T, val maxDepth: Int, val pipeDelay: Int = 1) extends Module {
+class OverlapSum[T <: Data : Ring](val gen: T, val maxDepth: Int) extends Module {
   require(maxDepth > 0, s"Depth must be > 0, got $maxDepth")
 
   val io = IO(new Bundle {
@@ -25,10 +25,11 @@ class OverlapSum[T <: Data : Ring](val gen: T, val maxDepth: Int, val pipeDelay:
 
   val shr = ShiftRegisterMem(io.in, maxDepth, io.depth)
   val inDelayed = RegNext(io.in.bits)
-  val filled = filledIdx >= depth - 1.U
+  val filled = filledIdx > depth - 1.U
   val filledDelayed = RegNext(filled)
 
-  val sum = Reg((io.in.bits * log2Ceil(maxDepth)).cloneType)
+  val sumT: T = (io.in.bits * log2Ceil(maxDepth)).cloneType
+  val sum = RegInit(t = sumT, init = 0.U.asTypeOf(sumT))
   when (shr.valid) {
     assert(RegNext(io.in.valid))
     when (filledDelayed) {
@@ -46,6 +47,6 @@ class OverlapSum[T <: Data : Ring](val gen: T, val maxDepth: Int, val pipeDelay:
     filledDelayed := false.B // takes an extra cycle to be reset otherwise
   }
 
-  io.out.bits := sum // ShiftRegister(sum, pipeDelay)
-  io.out.valid := RegNext(shr.fire() && filledDelayed, init=false.B) // ShiftRegister(io.in.fire() && filledIdx >= depth, pipeDelay, resetData = false.B, en = true.B)
+  io.out.bits := sum
+  io.out.valid := RegNext(shr.fire() && filledDelayed, init=false.B)
 }

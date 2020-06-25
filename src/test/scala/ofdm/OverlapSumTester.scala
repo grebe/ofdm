@@ -42,12 +42,13 @@ class OverlapSumTester(c: OverlapSum[UInt], depth: Int) extends PeekPokeTester(c
     step(1)
   }
 
-  val computedOuts = for (i <- 0 until validIns.length - depth) yield {
+  val computedOuts = for (i <- 1 to validIns.length - depth) yield {
     val partialSumTerms = validIns.drop(i).take(depth)
     val partialSum = partialSumTerms.sum % (1L << width)
     partialSum
   }
   computedOuts.zip(validOuts).foreach { case (computed, seen) =>
+    // println(s"Computed $computed but saw $seen")
     require(computed == seen, s"Computed $computed but saw $seen")
   }
 }

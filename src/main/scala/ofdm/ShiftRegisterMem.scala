@@ -14,32 +14,41 @@ class ShiftRegisterMem[T <: Data](val gen: T, val maxDepth: Int) extends Module 
     val out   = Output(Valid(gen.cloneType))
   })
 
-  val mem        = SyncReadMem(maxDepth, gen)
-  val readIdx    = Wire(UInt(log2Ceil(maxDepth).W))
-  val readIdxReg = RegInit(0.U(log2Ceil(maxDepth).W) - (maxDepth - 1).U)
-  val writeIdx   = RegInit(0.U(log2Ceil(maxDepth).W))
+  val mem         = SyncReadMem(maxDepth, gen)
+  val readIdx     = Wire(UInt(log2Ceil(maxDepth).W))
+  val readIdxReg  = RegInit(0.U(log2Ceil(maxDepth).W) - (maxDepth - 1).U)
+  val writeIdxReg = RegInit(0.U(log2Ceil(maxDepth).W))
 
   when (io.depth.valid) {
-    val diff = writeIdx - io.depth.bits
-    when (writeIdx >= io.depth.bits) {
-      readIdx := writeIdx - io.depth.bits
+    val diff = writeIdxReg - io.depth.bits + 1.U
+    when (writeIdxReg + 1.U >= io.depth.bits) {
+      readIdx := writeIdxReg - io.depth.bits + 1.U
     } .otherwise {
-      readIdx := maxDepth.U + writeIdx - io.depth.bits
+      readIdx := maxDepth.U + writeIdxReg + 1.U - io.depth.bits
     }
   } .otherwise {
     readIdx := readIdxReg
   }
 
   when (io.in.valid) {
+    mem.write(writeIdxReg, io.in.bits)
+    writeIdxReg := Mux(writeIdxReg < (maxDepth - 1).U, writeIdxReg + 1.U, 0.U)
+  }
+
+  val validPrev = RegNext(io.in.valid, init=false.B)
+  when (io.in.valid) { //validPrev) {
     readIdxReg := Mux(readIdx < (maxDepth - 1).U, readIdx + 1.U, 0.U)
-    writeIdx := Mux(writeIdx < (maxDepth - 1).U, writeIdx + 1.U, 0.U)
-  }   .otherwise {
+  } .otherwise {
     readIdxReg := readIdx
   }
 
-  mem.write(writeIdx, io.in.bits)
-  io.out.bits := mem.read(readIdx)
-  io.out.valid := RegNext(io.in.fire(), init = false.B)
+  val outputQueue = Module(new Queue(gen, 1, pipe=true, flow=true))
+  outputQueue.io.enq.valid := validPrev
+  outputQueue.io.enq.bits := mem.read(readIdx)
+
+  io.out.bits := outputQueue.io.deq.bits
+  outputQueue.io.deq.ready := io.in.valid
+  io.out.valid := io.in.valid
 }
 
 object ShiftRegisterMem {

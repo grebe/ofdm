@@ -66,28 +66,30 @@ class AutocorrSimple[T <: Data : Ring](params: AutocorrParams[DspComplex[T]]) ex
   // correlate short and long path
   val toMult = shr.io.out.bits.conj()
   val prod   = in_bits_next * toMult
+  assert(!(shrCount >= shrMaxDepth.U) || (in_fire_next === shr.io.out.fire()),
+    s"prod should always be a product of valid inputs")
 
   // sliding window
-  val sum = Module(new OverlapSum(genOut, maxOverlap, pipeDelay = params.addPipeDelay * log2Ceil(maxOverlap)))
+  val sum = Module(new OverlapSum(genOut, maxOverlap))
 
   sum.io.depth.bits  := io.config.depthOverlap
   sum.io.depth.valid := io.config.depthOverlap =/= RegNext(io.config.depthOverlap)
 
   // pipeline the multiply here
-  sum.io.in.bits  := ShiftRegister(prod, params.mulPipeDelay) // , en = io.in.fire())
-  sum.io.in.valid := ShiftRegister(in_fire_next, params.mulPipeDelay, resetData = false.B, en = true.B) //, en = io.in.fire())
+  sum.io.in.bits  := ShiftRegister(prod, params.mulPipeDelay)
+  sum.io.in.valid := ShiftRegister(in_fire_next, params.mulPipeDelay, resetData = false.B, en = true.B)
 
 
   io.out.valid := sum.io.out.valid && (shrCount >= shrMaxDepth.U)
   io.out.bits  := sum.io.out.bits
 
-  val energySum = Module(new OverlapSum(genOut.real, maxOverlap, pipeDelay = params.addPipeDelay * log2Ceil(maxOverlap)))
+  val energySum = Module(new OverlapSum(genOut.real, maxOverlap))
 
   energySum.io.depth.bits  := io.config.depthOverlap
   energySum.io.depth.valid := io.config.depthOverlap =/= RegNext(io.config.depthOverlap)
 
-  energySum.io.in.bits  := ShiftRegister(shr.io.out.bits.abssq(), params.mulPipeDelay) //, en = io.in.fire())
-  energySum.io.in.valid := ShiftRegister(in_fire_next, params.mulPipeDelay, resetData = false.B, en = true.B) // , en = io.in.fire())
+  energySum.io.in.bits  := ShiftRegister(shr.io.out.bits.abssq(), params.mulPipeDelay)
+  energySum.io.in.valid := ShiftRegister(in_fire_next, params.mulPipeDelay, resetData = false.B, en = true.B)
 
   assert(energySum.io.out.valid === sum.io.out.valid, "energySum and sum valid signals should be the same")
   io.energy.valid := energySum.io.out.valid
@@ -96,7 +98,7 @@ class AutocorrSimple[T <: Data : Ring](params: AutocorrParams[DspComplex[T]]) ex
   /**
     * Total delay in cycles from @io.in to @io.out and @io.energy
     */
-  val totalDelay = params.mulPipeDelay + params.addPipeDelay * log2Ceil(maxOverlap) + 1
+  val totalDelay = params.mulPipeDelay + 1
 }
 
 object BuildSampleAutocorr {

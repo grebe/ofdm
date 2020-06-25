@@ -11,8 +11,8 @@ class AutocorrSpec extends FlatSpec with Matchers {
     testerOptions = testerOptions.copy(backendName = "treadle", generateVcdOutput = "on")
   }
 
-  def overlapDut(width:Int, depth:Int, delay: Int): () => OverlapSum[UInt] =
-    () => new OverlapSum(UInt(width.W), depth, delay)
+  def overlapDut(width:Int, depth:Int): () => OverlapSum[UInt] =
+    () => new OverlapSum(UInt(width.W), depth)
 
   def shrDut(width: Int, depth: Int): () => ShiftRegisterMem[UInt] =
     () => new ShiftRegisterMem(UInt(width.W), depth)
@@ -21,32 +21,16 @@ class AutocorrSpec extends FlatSpec with Matchers {
 
   for (d <- 1 until 10) {
     it should s"work with depth $d" in {
-      iotesters.Driver.execute(overlapDut(8, 10, 0), optionsManager = manager) { c =>
+      iotesters.Driver.execute(overlapDut(8, 10), optionsManager = manager) { c =>
         new OverlapSumTester(c, d) } should be (true)
     }
   }
 
-  // it should "work with depth 1" in {
-  //   iotesters.Driver.execute(overlapDut(8, 4, 0), optionsManager = manager) { c =>
-  //     new OverlapSumTester(c, 1) } should be (true)
-  // }
-
-  // it should "work with full depth" in {
-  //   iotesters.Driver.execute(overlapDut(8, 5, 0), optionsManager = manager) { c =>
-  //     new OverlapSumTester(c, 4) } should be (true)
-  // }
-
-  // it should "work with pipeline delays" in {
-  //   iotesters.Driver.execute(overlapDut(8, 4, 5), optionsManager = manager) { c =>
-  //     new OverlapSumTester(c, 4) } should be (true)
-  // }
-
-
   behavior of "ShiftRegister"
 
-  it should "work with depth 1" in {
+  it should "work with depth 2" in {
     iotesters.Driver.execute(shrDut(8, 4), optionsManager = manager) { c =>
-      new ShiftRegisterTester(c, 1)
+      new ShiftRegisterTester(c, 2)
     } should be (true)
   }
 
