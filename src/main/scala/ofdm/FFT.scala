@@ -3,6 +3,7 @@ package ofdm
 import chisel3._
 import chisel3.util._
 import breeze.math.Complex
+import chisel3.experimental.{ChiselEnum, chiselName}
 import chisel3.internal.requireIsChiselType
 import dsptools.{DspContext, DspTester}
 import dsptools.numbers._
@@ -161,7 +162,7 @@ class R2SDF[T <: Data : Ring : ConvertableTo](val n: Int, val genIn: T, val genO
   io.out.valid := ShiftRegister(io.in.valid, n, false.B, true.B)
 }
 
-class BF2I[T <: Data : Ring](proto: T, delay: Int) extends MultiIOModule {
+class BF2I[T <: Data : Ring](proto: T, val delay: Int) extends MultiIOModule {
   requireIsChiselType(proto)
   require(delay > 0)
 
@@ -171,7 +172,7 @@ class BF2I[T <: Data : Ring](proto: T, delay: Int) extends MultiIOModule {
   val out = IO(Output(DspComplex(proto)))
 
   val feedbackIn = Wire(Valid(DspComplex(proto)))
-  val feedback = if (false) { //delay > 1) {
+  val feedback = if (delay > 1) { //delay > 1) {
     ShiftRegisterMem(feedbackIn, delay).bits
   } else {
     ShiftRegister(feedbackIn.bits, delay, en = feedbackIn.valid)
@@ -192,7 +193,7 @@ class BF2I[T <: Data : Ring](proto: T, delay: Int) extends MultiIOModule {
   }
 }
 
-class BF2II[T <: Data : Ring](proto: T, delay: Int) extends MultiIOModule {
+class BF2II[T <: Data : Ring](proto: T, val delay: Int) extends MultiIOModule {
   requireIsChiselType(proto)
   require(delay > 0)
 
@@ -205,9 +206,9 @@ class BF2II[T <: Data : Ring](proto: T, delay: Int) extends MultiIOModule {
   val scaledIn = Wire(in.cloneType)
   scaledIn.real := in.imag
   scaledIn.imag := -in.real
-  val inTwiddled = Mux(inMultByJ, scaledIn, in)
+  val inTwiddled = Mux(sel && inMultByJ, scaledIn, in)
   val feedbackIn = Wire(Valid(DspComplex(proto)))
-  val feedback = if (false) { // (delay > 1) {
+  val feedback = if (delay > 1) { // (delay > 1) {
     ShiftRegisterMem(feedbackIn, delay).bits
   } else {
     ShiftRegister(feedbackIn.bits, delay, en = feedbackIn.valid)
@@ -215,7 +216,7 @@ class BF2II[T <: Data : Ring](proto: T, delay: Int) extends MultiIOModule {
 
   feedbackIn.valid := en // ShiftRegister(en, DspContext.current.numAddPipes, resetData = false.B, en = true.B)
   when (sel) {
-    feedbackIn.bits := inTwiddled - feedback
+    feedbackIn.bits := feedback - inTwiddled
   } .otherwise {
     feedbackIn.bits := inTwiddled
   }
@@ -226,16 +227,15 @@ class BF2II[T <: Data : Ring](proto: T, delay: Int) extends MultiIOModule {
   }
 }
 
-class R22Stage[T <: Data : Ring](proto:T, n: Int) extends MultiIOModule {
+class R22Stage[T <: Data : Ring](proto:T, val n: Int) extends MultiIOModule {
   requireIsChiselType(proto)
   require(n > 2)
   require(isPow2(n))
 
-  val logn = log2Ceil(n)
   val en = IO(Input(Bool()))
   val in = IO(Input(DspComplex(proto)))
-  val ctrl = IO(Input(UInt(logn.W)))
-  val protoOut = chiselTypeOf(in.real + in.real)
+  val ctrl = IO(Input(UInt(2.W)))
+  val protoOut = chiselTypeOf(in.real context_+ in.real)
   val out = IO(Output(DspComplex(protoOut)))
 
   val stage1 = Module(new BF2I(proto, n / 2))
@@ -243,16 +243,99 @@ class R22Stage[T <: Data : Ring](proto:T, n: Int) extends MultiIOModule {
 
   stage1.in := in
   stage1.en := en
-  stage1.sel := ctrl(logn - 1)
+  stage1.sel := ctrl(1)
 
   stage2.in := stage1.out
   stage2.en := ShiftRegister(en, DspContext.current.numAddPipes, resetData = false.B, en = true.B)
-  stage2.sel := ShiftRegister(ctrl(logn - 2), DspContext.current.numAddPipes)
-  stage2.inMultByJ := ShiftRegister(ctrl(logn - 2) && !ctrl(logn - 1), DspContext.current.numAddPipes)
+  stage2.sel := ShiftRegister(ctrl(0), DspContext.current.numAddPipes)
+  stage2.inMultByJ := ShiftRegister(!ctrl(1) && ctrl(0), DspContext.current.numAddPipes)
 
   out := stage2.out
 }
 
+class SDFInputManager[T <: Data](val n: Int, val proto: T) extends MultiIOModule {
+  require(n > 0)
+  requireIsChiselType(proto)
+
+  val in = IO(Flipped(Decoupled(proto)))
+  val in_last = IO(Input(Bool()))
+
+  val out = IO(Decoupled(proto))
+  val out_last = IO(Output(Bool()))
+
+  val cnt = RegInit(0.U(log2Ceil(n).W))
+  val last = RegInit(false.B)
+
+  out <> in
+  out_last := in_last
+  when (out.fire()) {
+    cnt := cnt +% 1.U
+  }
+
+  when (in.fire() && in_last) {
+    last := true.B
+  }
+
+  // this flushes the previous
+  when (last) {
+    out.bits := 0.U.asTypeOf(proto)
+    out.valid := true.B
+    in.ready := false.B
+    when (out.fire() && cnt === (n - 1).U) {
+      last := false.B
+    }
+  }
+}
+
+class SDFOutputManager[T <: Data](val n: Int, val proto: T) extends MultiIOModule {
+  require(n > 0)
+  requireIsChiselType(proto)
+
+  val in = IO(Flipped(Decoupled(proto)))
+  val in_last = IO(Input(Bool()))
+
+  val out = IO(Decoupled(proto))
+  val out_last = IO(Output(Bool()))
+
+  object State extends ChiselEnum {
+    // sLast is not the "last" state in the state machine,
+    // it is the state you go to when in_last is asserted
+    val sLast, sDrop, sPass = Value
+  }
+
+  val state = RegInit(State.sDrop)
+  val cnt = RegInit(n.U)
+
+  when (in.fire()) {
+    cnt := cnt -% 1.U
+  }
+
+  // unless state is sDrop, pass through
+  out <> in
+  out_last := false.B
+
+  when (state === State.sLast) {
+    when (cnt === 0.U) {
+      cnt := n.U
+      state := State.sDrop
+      out_last := true.B
+    }
+  }.elsewhen (state === State.sDrop) {
+    in.ready := true.B
+    out.valid := false.B
+    when (cnt === 0.U) {
+      state := State.sPass
+    }
+  } .elsewhen (state === State.sPass) {
+    // stay in here until you see in_last
+  }
+
+  when (in.fire() && in_last) {
+    state := State.sLast
+  }
+}
+
+@chiselName
 class R22SDF[T <: Data : Ring : ConvertableTo](val n: Int, val protoIn: T, val protoOut: T, val protoTwiddle: T)
 extends MultiIOModule {
   requireIsChiselType(protoIn)
@@ -264,94 +347,99 @@ extends MultiIOModule {
   require(logn % 2 == 0, "n must be a power of 4")
 
   val in = IO(Flipped(Decoupled(DspComplex(protoIn, protoIn))))
+  val in_last = IO(Input(Bool()))
   val out = IO(Decoupled(DspComplex(protoOut, protoOut)))
+  val out_last = IO(Output(Bool()))
 
-  val cnt = RegInit(0.U((logn + 1).W))
+  val inputManager = Module(new SDFInputManager(n - 1, DspComplex(protoIn, protoIn)))
+  inputManager.in <> in
+  inputManager.in_last := in_last
+  val outputManager = Module(new SDFOutputManager(n - 1, DspComplex(protoOut, protoOut)))
+  out <> outputManager.out
+  out_last := outputManager.out_last
 
-  when (in.fire()) {
+  val cnt = RegInit(0.U(logn.W))
+
+  when (inputManager.out.fire()) {
     cnt := cnt +% 1.U
   }
-  val initialDelay = n - 1
-  // val initialOutCnt = RegInit(0.U(logn.W)) // Used to eliminate the first garbage samples0
 
-  val complexMulLatency = if (DspContext.current.complexUse4Muls) {
-    DspContext.current.numAddPipes + DspContext.current.numMulPipes
-  } else {
-    2 * DspContext.current.numAddPipes + DspContext.current.numMulPipes
+  val complexMulLatency = DspContext.current.complexMulPipe
+
+  //                input,         en,   last, ctrl, proto
+  type StageInfo = (DspComplex[T], Bool, Bool, UInt, T)
+  def makeStage(stageInfo: StageInfo, logStage: Int): StageInfo = {
+    val (input, en, last, ctrl, proto) = stageInfo
+    val stageN = 1 << (logn - logStage)
+    val lastStage = stageN == 4
+    val outputLatency = 2 * DspContext.current.numAddPipes + (if (lastStage) 0 else complexMulLatency)
+
+    val stage = Module(new R22Stage(proto, stageN))
+    stage.in := input
+    stage.en := en
+    stage.ctrl := ctrl.head(2)
+    println(s"stage $stageN")
+
+    val lastOut = if (!lastStage) {
+      val twiddleIdxs =
+        Seq.fill(stageN / 4)(0) ++
+        Seq.tabulate(stageN / 4)(i => i * 2) ++
+        Seq.tabulate(stageN / 4)(i => i) ++
+        Seq.tabulate(stageN / 4)(i => i * 3) // ++
+      val uniqueTwiddleIdxs = twiddleIdxs.distinct.sorted
+      val uniqueTwiddleTable = VecInit(uniqueTwiddleIdxs.map(t =>
+        DspComplex.wire(
+          real = ConvertableTo[T].fromDoubleWithFixedWidth( math.cos(2 * math.Pi * t / stageN), protoTwiddle),
+          imag = ConvertableTo[T].fromDoubleWithFixedWidth(-math.sin(2 * math.Pi * t / stageN), protoTwiddle)
+        )))
+      val twiddleIdxTable = VecInit(twiddleIdxs.map(i => {
+        ( (uniqueTwiddleIdxs.indexOf(i) /*+ stageN / 2*/) /*% stageN*/).U
+      }))
+
+      val twiddleCnt = ShiftRegister(ctrl - (3 * n / 4).U, 2 * DspContext.current.numAddPipes)
+      val twiddle = uniqueTwiddleTable(twiddleIdxTable(twiddleCnt))
+      // ctrl +% (2 * DspContext.current.numAddPipes).U // - (stageN / 2 + 2 * DspContext.current.numAddPipes).U // ShiftRegister(stageCnt, 2 * DspContext.current.numAddPipes)
+      stage.out context_* twiddle
+    } else {
+      stage.out
+    }
+
+    (
+      lastOut,
+      ShiftRegister(en, outputLatency, resetData = false.B, en = true.B),
+      ShiftRegister(last, outputLatency),
+      ShiftRegister(ctrl.tail(2), outputLatency, resetData = 0.U, en = true.B),
+      chiselTypeOf(stage.out.real)
+    )
   }
 
-  val (outBits, outEn, outCnt, _) = (0 until logn by 2).foldLeft( (in.bits, in.fire(), cnt, protoIn)) {
-    case ((stageIn, stageEn, stageCnt, stageProto), logStage) =>
-      println(s"stage ${1 << (logn - logStage)}")
-      val stage = Module(new R22Stage(stageProto, 1 << (logn - logStage)))
-      stage.in := stageIn
-      stage.en := stageEn
-      stage.ctrl := stageCnt
-
-      val stageN = 1 << (logn - logStage)
-      val lastStage = stageN == 4
-      val outputLatency = 2 * DspContext.current.numAddPipes + (if (lastStage) 0 else complexMulLatency)
-
-      val lastOut = if (!lastStage) {
-        val twiddleIdxs =
-          Seq.fill(stageN / 4)(0) ++
-          Seq.tabulate(stageN / 4)(i => i * 2) ++
-          Seq.tabulate(stageN / 4)(i => i) ++
-          Seq.tabulate(stageN / 4)(i => i * 3) // ++
-        val uniqueTwiddleIdxs = twiddleIdxs.distinct.sorted
-        val uniqueTwiddleTable = VecInit(uniqueTwiddleIdxs.map(t =>
-          DspComplex.wire(
-            real = ConvertableTo[T].fromDoubleWithFixedWidth( math.cos(2 * math.Pi * t / stageN), protoTwiddle),
-            imag = ConvertableTo[T].fromDoubleWithFixedWidth(-math.sin(2 * math.Pi * t / stageN), protoTwiddle)
-          )))
-        val twiddleIdxTable = VecInit(twiddleIdxs.map(i => {
-          ( (uniqueTwiddleIdxs.indexOf(i) /*+ stageN / 2*/) /*% stageN*/).U
-        }))
-
-        val twiddleCnt = stageCnt + (2 * DspContext.current.numAddPipes).U // - (stageN / 2 + 2 * DspContext.current.numAddPipes).U // ShiftRegister(stageCnt, 2 * DspContext.current.numAddPipes)
-        stage.out context_* uniqueTwiddleTable(twiddleIdxTable(twiddleCnt))
-      } else {
-        stage.out
-      }
-
-      (
-        lastOut,
-        ShiftRegister(stageEn, outputLatency, resetData = false.B, en = true.B),
-        ShiftRegister(stageCnt, outputLatency, resetData = 0.U, en = true.B),
-        chiselTypeOf(stage.out.real)
-      )
-  }
+  val initStageInfo = (inputManager.out.bits, inputManager.out.fire(), inputManager.out_last, cnt, protoIn)
+  val (outBits, outFire, outLast, outCnt, _) = (0 until logn by 2).foldLeft(initStageInfo)(makeStage)
 
   //             (1 add per BF stage)                     (1 mul every other stage, also excluding the last two)
   val latency = (DspContext.current.numAddPipes) * logn + complexMulLatency * ((logn - 2) / 2)
   println(s"latency = $latency, numAdd = ${DspContext.current.numAddPipes}, numMul = ${DspContext.current.numMulPipes}")
   // entries has + 1 because does not input does not flow through to output in single cycle
   val outQueue = Module(new Queue(DspComplex(protoOut), entries = latency + 1))
-  val initialInDone = RegInit(false.B)
-  val hasWorthwhileInput = in.fire() && initialInDone // && cnt(logn)
-  val initialOutDone = RegInit(false.B)
-  // when (outEn) {
-  //   initialOutCnt := initialOutCnt +% 1.U
-  // }
-  // when (initialOutCnt === initialDelay.U) {
-  // printf("outCnt = %d\n", outCnt)
-  when (cnt === (initialDelay - 1).U) {
-    initialInDone := true.B
-  }
-  when (outCnt === (initialDelay - 1).U) {
-    initialOutDone := true.B
-  }
-  val hasWorthwhileOutput = outEn && initialOutDone // && outCnt(logn)
+  val outLastQueue = Module(new Queue(Bool(), entries = latency + 1))
   outQueue.io.enq.bits := outBits
-  outQueue.io.enq.valid := hasWorthwhileOutput
-  assert(!hasWorthwhileOutput || outQueue.io.enq.ready)
-  val inFlight = RegInit(0.U((log2Ceil(latency + 2)).W))
-  when (hasWorthwhileInput && !hasWorthwhileOutput) {
-    inFlight := inFlight +% 1.U
-  }
-  when (!hasWorthwhileInput && hasWorthwhileOutput) {
-    inFlight := inFlight -% 1.U
-  }
-  in.ready := outQueue.io.count + inFlight <= (latency + 1).U
-  out <> outQueue.io.deq
+  outQueue.io.enq.valid := outFire
+  assert(!outFire || outQueue.io.enq.ready, "Output dropped because output queue full")
+
+  outLastQueue.io.enq.bits := outLast
+  outLastQueue.io.enq.valid := outFire
+  assert(!outFire || outLastQueue.io.enq.ready, "Last dropped because output queue full")
+  assert(outQueue.io.deq.valid === outLastQueue.io.deq.valid)
+
+  val inFlight = RegInit(0.U(log2Ceil(latency + 2).W))
+  inFlight := inFlight +% inputManager.out.fire() -% outFire
+  assert(inFlight > 0.U || inputManager.out.fire() || !outFire, "Underflow on the inFlight counter")
+
+  inputManager.out.ready := inFlight +% outQueue.io.count < (latency + 1).U
+  outputManager.in <> outQueue.io.deq
+  outputManager.in_last := outLastQueue.io.deq.bits
+  outLastQueue.io.deq.ready := outputManager.in.ready
+
+  out <> outputManager.out
+  out_last := outputManager.out_last
 }
