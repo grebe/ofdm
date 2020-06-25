@@ -103,6 +103,8 @@ abstract class TimeDomainRXBlock[T <: Data : Real: BinaryRepresentation, D, U, E
         RegFieldDesc(name = "packetLength", desc = "Length of a detected packet")),
       RegField(32, samplesToDrop,
         RegFieldDesc(name = "samplesToDrop", desc = "Number of initial samples to drop in a detected packet")),
+      RegField.w(32, rx.inputDelay,
+        RegFieldDesc(name = "inputDelay", desc = "number of samples to delay the input by")),
       RegField(1, globalCycleEn,
         RegFieldDesc(name = "globalCycleEn", desc = "Enable for global cycle counter")),
 

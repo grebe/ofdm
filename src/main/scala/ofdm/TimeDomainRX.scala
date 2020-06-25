@@ -52,6 +52,7 @@ class TimeDomainRX[T <: Data : Real: BinaryRepresentation](params: RXParams[T], 
   val freqMultiplier: T = IO(Input(params.protoAngle))
   val autocorrConfig   = IO(AutocorrConfigIO(params.autocorrParams))
   val peakDetectConfig = IO(SimplePeakDetectConfigIO(maxNumPeaks = params.maxNumPeaks))
+  val inputDelay = IO(Flipped(Decoupled(UInt(32.W))))
 
   // Status stuff
   // val streamCount = IO(Output(UInt(log2Ceil(params.queueDepth).W)))
@@ -139,19 +140,38 @@ class TimeDomainRX[T <: Data : Real: BinaryRepresentation](params: RXParams[T], 
   nco.io.en := in.fire()
   nco.io.freq := freq * freqMultiplier
 
+  val maxInputDelay: Int = // autocorr delay
+    params.autocorrParams.maxApart + params.autocorrParams.maxOverlap + params.autocorrParams.mulPipeDelay
+  inputDelay.ready := true.B
+
   val inputQueue = Module(new Queue(chiselTypeOf(in.bits), 1, pipe = true, flow = true))
+  val delayedInput = Module(new ShiftRegisterMem(chiselTypeOf(in.bits), maxDepth = maxInputDelay))
+  val outputQueue = Module(new Queue(chiselTypeOf(in.bits), 1, pipe = true, flow = true))
+
+  delayedInput.io.depth.valid := inputDelay.valid
+  delayedInput.io.depth.bits := inputDelay.bits
 
   in.ready := inputQueue.io.enq.ready
   inputQueue.io.enq.valid := in.valid
   inputQueue.io.enq.bits := in.bits
-  inputQueue.io.deq.ready := nco.io.out.valid
 
-  segmenter.in.bits := inputQueue.io.deq.bits * nco.io.out.bits
-  segmenter.in.valid := inputQueue.io.deq.valid
+  inputQueue.io.deq.ready := outputQueue.io.enq.ready
+  delayedInput.io.in.valid := inputQueue.io.deq.valid && outputQueue.io.enq.ready
+  delayedInput.io.in.bits := inputQueue.io.deq.bits
+
+  outputQueue.io.enq.bits := delayedInput.io.out.bits
+  outputQueue.io.enq.valid := delayedInput.io.out.valid
+
+  assert(!outputQueue.io.deq.fire() || nco.io.out.fire(),
+    "delayed input should be modulated by valid nco output")
+
+
+  segmenter.in.bits := outputQueue.io.deq.bits * nco.io.out.bits
+  segmenter.in.valid := outputQueue.io.deq.valid
   segmenter.packetLength := packetLength
   segmenter.samplesToDrop := samplesToDrop
   segmenter.packetDetect := peakDetect.io.out.fire()
-  inputQueue.io.deq.ready := segmenter.in.ready
+  outputQueue.io.deq.ready := segmenter.in.ready
 
   cpRemover.in <> segmenter.out
   cpRemover.tlastIn := segmenter.tlast
