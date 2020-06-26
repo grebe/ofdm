@@ -31,11 +31,11 @@ class OverlapSum[T <: Data : Ring](val gen: T, val maxDepth: Int) extends Module
   val sumT: T = (io.in.bits * log2Ceil(maxDepth)).cloneType
   val sum = RegInit(t = sumT, init = 0.U.asTypeOf(sumT))
   when (shr.valid) {
-    assert(RegNext(io.in.valid))
+    assert(io.in.valid)
     when (filledDelayed) {
-      sum := sum + inDelayed - shr.bits
+      sum := sum + io.in.bits - shr.bits
     } .otherwise {
-      sum := sum + inDelayed
+      sum := sum + io.in.bits
     }
   }
 

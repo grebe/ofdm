@@ -162,12 +162,11 @@ class TimeDomainRX[T <: Data : Real: BinaryRepresentation](params: RXParams[T], 
   outputQueue.io.enq.bits := delayedInput.io.out.bits
   outputQueue.io.enq.valid := delayedInput.io.out.valid
 
-  assert(!outputQueue.io.deq.fire() || nco.io.out.fire(),
+  assert(!RegNext(outputQueue.io.deq.fire(), init=false.B) || nco.io.out.fire(),
     "delayed input should be modulated by valid nco output")
 
-
-  segmenter.in.bits := outputQueue.io.deq.bits * nco.io.out.bits
-  segmenter.in.valid := outputQueue.io.deq.valid
+  segmenter.in.bits := RegNext(outputQueue.io.deq.bits) * nco.io.out.bits
+  segmenter.in.valid := RegNext(outputQueue.io.deq.valid, init=false.B)
   segmenter.packetLength := packetLength
   segmenter.samplesToDrop := samplesToDrop
   segmenter.packetDetect := peakDetect.io.out.fire()
