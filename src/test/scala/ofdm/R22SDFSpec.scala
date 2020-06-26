@@ -217,7 +217,7 @@ class R22SDFTester[T <: Data](dut: R22SDF[T], val freq: Int = 1) extends DspTest
   poke(dut.in_last, 0)
   poke(dut.in.valid, 1)
   poke(dut.out.ready, 1)
-  while (output.length < dut.n && totalCycles < 10000) {
+  while (output.length < dut.n && totalCycles < 1000) {
     if (inValidDelay == 0 && input.hasNext) {
       if (input.hasNext && peek(dut.in.ready)) {
         poke(dut.in.valid, true)
@@ -235,7 +235,7 @@ class R22SDFTester[T <: Data](dut: R22SDF[T], val freq: Int = 1) extends DspTest
       if (peek(dut.out.valid)) {
         output :+= peek(dut.out.bits)
         if (expectedOutputIter.hasNext) {
-          fixTolLSBs.withValue(4) {
+          fixTolLSBs.withValue(2 + log2Ceil(dut.n)) {
             expect(dut.out.bits, expectedOutputIter.next())
           }
         } else {
@@ -331,6 +331,20 @@ class R22SDFSpec extends FlatSpec with Matchers {
         numMulPipes = 3,
       )) {
         R22SDFTester(64, proto, proto, protoTwiddle = protoTwiddle, freq = freq) should be(true)
+      }
+    }
+  }
+
+  for (freq <- 0 until 5) {
+    it should s"work for n = 256 with freq = $freq" in {
+      // shadowing is bad, mkay
+      // this fft is big enough that the extra MSBs are nice
+      val proto = FixedPoint(32.W, 20.BP)
+      DspContext.alter(DspContext.current.copy(
+        numAddPipes = 1,
+        numMulPipes = 3,
+      )) {
+        R22SDFTester(256, proto, proto, protoTwiddle = protoTwiddle, freq = freq) should be(true)
       }
     }
   }

@@ -29,6 +29,7 @@ class FreqDomainRX[T <: Data : Real : BinaryRepresentation]
   val fft = Module(new R22SDF(fftParams.numPoints, protoIn = fftParams.protoIQ.real, protoOut = fftParams.protoIQ.real, protoTwiddle = fftParams.protoTwiddle.real))
   val fftDeser = Module(new PacketDeserializer(PacketSerDesParams(fftParams.protoIQ, fftParams.numPoints)))
   fft.in <> in
+  fft.in_last := tlastIn
   fftDeser.io.in <> fft.out
   // val fft = Module(new SDFFFTDeserOut(fftParams))
   val est = Module(new FlatPilotEstimator(params))

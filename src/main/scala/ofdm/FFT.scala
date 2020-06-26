@@ -403,9 +403,9 @@ extends MultiIOModule {
         ( (uniqueTwiddleIdxs.indexOf(i) /*+ stageN / 2*/) /*% stageN*/).U
       }))
 
-      val twiddleCnt = ShiftRegister(ctrl - (3 * n / 4).U, 2 * DspContext.current.numAddPipes)
+      val twiddleCnt = ShiftRegister(ctrl + (stageN / 4).U, 2 * DspContext.current.numAddPipes)
       val twiddle = uniqueTwiddleTable(twiddleIdxTable(twiddleCnt))
-      // ctrl +% (2 * DspContext.current.numAddPipes).U // - (stageN / 2 + 2 * DspContext.current.numAddPipes).U // ShiftRegister(stageCnt, 2 * DspContext.current.numAddPipes)
+
       stage.out context_* twiddle
     } else {
       stage.out
