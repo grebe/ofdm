@@ -74,10 +74,10 @@ class AutocorrSimple[T <: Data : Ring](params: AutocorrParams[DspComplex[T]]) ex
 
   // pipeline the multiply here
   sum.io.in.bits  := ShiftRegister(prod, params.mulPipeDelay)
-  sum.io.in.valid := ShiftRegister(io.in.fire(), params.mulPipeDelay, resetData = false.B, en = true.B)
+  sum.io.in.valid := ShiftRegister(shrCount >= shrMaxDepth.U && io.in.fire(), params.mulPipeDelay,
+                                   resetData = false.B, en = true.B)
 
-
-  io.out.valid := sum.io.out.valid && (shrCount >= shrMaxDepth.U)
+  io.out.valid := sum.io.out.valid // && (shrCount >= shrMaxDepth.U)
   io.out.bits  := sum.io.out.bits
 
   val energySum = Module(new OverlapSum(genOut.real, maxOverlap))
@@ -86,7 +86,8 @@ class AutocorrSimple[T <: Data : Ring](params: AutocorrParams[DspComplex[T]]) ex
   energySum.io.depth.valid := io.config.depthOverlap =/= RegNext(io.config.depthOverlap)
 
   energySum.io.in.bits  := ShiftRegister(shr.io.out.bits.abssq(), params.mulPipeDelay)
-  energySum.io.in.valid := ShiftRegister(io.in.fire(), params.mulPipeDelay, resetData = false.B, en = true.B)
+  energySum.io.in.valid := ShiftRegister(io.in.fire() && shrCount >= shrMaxDepth.U, params.mulPipeDelay,
+                                         resetData = false.B, en = true.B)
 
   assert(energySum.io.out.valid === sum.io.out.valid, "energySum and sum valid signals should be the same")
   io.energy.valid := energySum.io.out.valid
