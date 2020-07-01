@@ -181,16 +181,6 @@ object R22StageTester {
     }
   }
 }
-
-object BitRev {
-  def apply(x: BigInt, nBits: Int): BigInt = {
-    val trailingBits = x.toString(2)
-    assert(trailingBits.length <= nBits)
-    val allBits = "0" * (nBits - trailingBits.length) + trailingBits
-    BigInt(allBits.reverse, 2)
-  }
-}
-
 class R22SDFTester[T <: Data](dut: R22SDF[T], val freq: Int = 1) extends DspTester(dut) {
   val inputSeq = Seq.tabulate(dut.n) (i => Complex(
     math.cos(2 * math.Pi * freq * i.toDouble / dut.n),

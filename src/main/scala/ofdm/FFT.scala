@@ -8,6 +8,15 @@ import chisel3.internal.requireIsChiselType
 import dsptools.{DspContext, DspTester}
 import dsptools.numbers._
 
+object BitRev {
+  def apply(x: BigInt, nBits: Int): BigInt = {
+    val trailingBits = x.toString(2)
+    assert(trailingBits.length <= nBits)
+    val allBits = "0" * (nBits - trailingBits.length) + trailingBits
+    BigInt(allBits.reverse, 2)
+  }
+}
+
 class FixedButterflyIO[T <: Data : Ring](genIn: T, genOut: T, n: Int) extends Bundle {
   val in       = Input (Vec(n, DspComplex(genIn, genIn)))
   val out      = Output(Vec(n, DspComplex(genOut, genOut)))
