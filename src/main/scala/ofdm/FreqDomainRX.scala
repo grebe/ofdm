@@ -31,10 +31,14 @@ class FreqDomainRX[T <: Data : Real : BinaryRepresentation]
   fft.in <> in
   fft.in_last := tlastIn
   fftDeser.io.in <> fft.out
+  val bitRev = Module(new FFTBitRev(fftDeser.io.out.bits.head.cloneType, fftParams.numPoints))
+  bitRev.in <> fftDeser.io.out
+  val estInputQueue = Queue(bitRev.out, entries=1, flow=true)
   // val fft = Module(new SDFFFTDeserOut(fftParams))
   val est = Module(new FlatPilotEstimator(params))
-  est.in <> fftDeser.io.out
-  est.pilots.foreach { _ := DspComplex.wire(Ring[T].one, Ring[T].zero) }
+  est.in <> estInputQueue
+  val pilotValue = DspComplex.wire(Ring[T].one, Ring[T].one) // pilots are all 1 + j
+  est.pilots.foreach { _ := pilotValue }
   val eq = Module(new FlatPilotEqualizer(params))
   eq.in <> est.out
   val dataSelector = Module(new DataSelector(params))
@@ -56,6 +60,7 @@ class FreqDomainRX[T <: Data : Real : BinaryRepresentation]
 
   out.valid := deser.io.out.valid
   deser.io.out.ready := out.ready
+  // hard decision for now
   out.bits := VecInit(deserFlat.map(_.isSignNonNegative())).asUInt
   // val ldpc = Module(new BPDecoder(params.protoLLR, CCSDS.params128x256))
   // ldpc.in.bits.zip(deserFlat).foreach { case (l, d) =>

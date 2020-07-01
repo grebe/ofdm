@@ -1,6 +1,7 @@
 package ofdm
 
 import chisel3._
+import chisel3.experimental.chiselName
 import chisel3.util.Decoupled
 import dsptools.numbers._
 
@@ -8,8 +9,8 @@ class QPSKDemodUnit[T <: Data : Real](protoIn: DspComplex[T], protoOut: T) exten
   val in = IO(Input(protoIn))
   val out = IO(Output(Vec(2, protoOut)))
 
-  out(0) := in.real
-  out(1) := in.imag
+  out(0) := in.imag
+  out(1) := in.real
 }
 
 class QPSKDemod[T <: Data : Real](params: RXParams[T]) extends MultiIOModule {

@@ -18,7 +18,8 @@ case class RXParams[T <: Data : Ring]
   }
   val protoFFTOut: DspComplex[T] = protoFFTIn.real match {
     case p: FixedPoint =>
-      val proto = FixedPoint((p.getWidth + (log2Ceil(nFFT) + 1)/ 2).W, p.binaryPoint + 4)
+      val addedBits = (log2Ceil(nFFT) + 1) / 2
+      val proto = FixedPoint((p.getWidth + addedBits).W, p.binaryPoint + ((addedBits + 1)/ 2))
       DspComplex(proto, proto).asInstanceOf[DspComplex[T]]
     case r: DspReal => protoFFTIn
   }
@@ -136,8 +137,11 @@ class TimeDomainRX[T <: Data : Real: BinaryRepresentation](params: RXParams[T], 
 
   // correct CFO
   val nco = Module(new NCO(params.ncoParams))
+  val ncoQueue = Module(new Queue(nco.io.out.bits.cloneType, 4, pipe=false, flow=false))
+  ncoQueue.io.enq.bits := nco.io.out.bits
+  ncoQueue.io.enq.valid := nco.io.out.valid
 
-  nco.io.en := in.fire()
+  nco.io.en := ncoQueue.io.enq.ready
   nco.io.freq := freq * freqMultiplier
 
   val maxInputDelay: Int = // autocorr delay
@@ -146,7 +150,7 @@ class TimeDomainRX[T <: Data : Real: BinaryRepresentation](params: RXParams[T], 
 
   val inputQueue = Module(new Queue(chiselTypeOf(in.bits), 1, pipe = true, flow = true))
   val delayedInput = Module(new ShiftRegisterMem(chiselTypeOf(in.bits), maxDepth = maxInputDelay))
-  val outputQueue = Module(new Queue(chiselTypeOf(in.bits), 1, pipe = true, flow = true))
+  val outputQueue = Module(new Queue(chiselTypeOf(in.bits), 1, pipe = true, flow = false))
 
   delayedInput.io.depth.valid := inputDelay.valid
   delayedInput.io.depth.bits := inputDelay.bits
@@ -162,11 +166,12 @@ class TimeDomainRX[T <: Data : Real: BinaryRepresentation](params: RXParams[T], 
   outputQueue.io.enq.bits := delayedInput.io.out.bits
   outputQueue.io.enq.valid := delayedInput.io.out.valid
 
-  assert(!RegNext(outputQueue.io.deq.fire(), init=false.B) || nco.io.out.fire(),
+  ncoQueue.io.deq.ready := outputQueue.io.deq.fire()
+  assert(outputQueue.io.deq.fire() === ncoQueue.io.deq.fire(),
     "delayed input should be modulated by valid nco output")
 
-  segmenter.in.bits := RegNext(outputQueue.io.deq.bits) * nco.io.out.bits
-  segmenter.in.valid := RegNext(outputQueue.io.deq.valid, init=false.B)
+  segmenter.in.bits := outputQueue.io.deq.bits * ncoQueue.io.deq.bits
+  segmenter.in.valid := outputQueue.io.deq.valid
   segmenter.packetLength := packetLength
   segmenter.samplesToDrop := samplesToDrop
   segmenter.packetDetect := peakDetect.io.out.fire()

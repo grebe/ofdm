@@ -53,7 +53,7 @@ class PreambleChannelEqualizer[T <: Data : Ring : ConvertableTo](params: RXParam
 
 class FlatPilotEqualizer[T <: Data : Ring : ConvertableTo](val params: RXParams[T])
 extends MultiIOModule {
-  val in = IO(Flipped(Decoupled(Vec(params.nFFT, params.protoFFTOut))))
+  val in = IO(Flipped(Decoupled(Vec(params.nFFT, params.protoChannelEst))))
   val out = IO(Decoupled(Vec(params.nFFT, params.protoFFTOut)))
 
   val estimates: Seq[DspComplex[T]] = for (i <- params.pilotPos) yield {
@@ -63,11 +63,7 @@ extends MultiIOModule {
   val multWire = Wire(Vec(params.nFFT, params.protoChannelEst))
   val addLatency = DspContext.current.numAddPipes
   val realMultLatency = DspContext.current.numMulPipes
-  val complexMultLatency = realMultLatency + (if (DspContext.current.complexUse4Muls) {
-    addLatency
-  } else {
-    2 * addLatency
-  })
+  val complexMultLatency = DspContext.current.complexMulPipe
   val totalLatency = complexMultLatency + realMultLatency + addLatency
 
   // left edge - use the first est for every subcarrier
@@ -80,11 +76,18 @@ extends MultiIOModule {
     val leftEst = in.bits(begin) // estimates(pilotIdx)
     val rightEst = in.bits(end) // estimates(pilotIdx + 1)
     for (i <- 1 until extent) {
-      val leftCoeff = ConvertableTo[T].fromDoubleWithFixedWidth(sincpi(i.toDouble / extent), params.protoFFTOut.real)
-      val rightCoeff = ConvertableTo[T].fromDoubleWithFixedWidth(sincpi(1 - i.toDouble / extent), params.protoFFTOut.real)
-      val left = DspComplex.wire(leftEst.real context_* leftCoeff, leftEst.imag context_* leftCoeff)
-      val right = DspComplex.wire(rightEst.real context_* rightCoeff, rightEst.imag context_* rightCoeff)
-      multWire(begin + i) := ShiftRegister(in.bits(begin + i), realMultLatency + addLatency) context_* (left context_+ right)
+      // val leftCoeff = ConvertableTo[T].fromDoubleWithFixedWidth(sincpi(i.toDouble / extent), params.protoFFTOut.real)
+      // val rightCoeff = ConvertableTo[T].fromDoubleWithFixedWidth(sincpi(1 - i.toDouble / extent), params.protoFFTOut.real)
+      // val left = DspComplex.wire(leftEst.real context_* leftCoeff, leftEst.imag context_* leftCoeff)
+      // val right = DspComplex.wire(rightEst.real context_* rightCoeff, rightEst.imag context_* rightCoeff)
+      // multWire(begin + i) := ShiftRegister(in.bits(begin + i), realMultLatency + addLatency) context_* (left context_+ right)
+    }
+  }
+  for (i <- 0 until params.nFFT) {
+    val rightEsts = params.pilotPos.filter(_ > i)
+    if (rightEsts.nonEmpty) {
+      val est = in.bits(rightEsts.head)
+      multWire(i) := ShiftRegister(in.bits(i) context_* est, totalLatency - complexMultLatency)
     }
   }
   // right edge - use the last est for every subcarrier
